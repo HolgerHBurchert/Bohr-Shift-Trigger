@@ -5,7 +5,8 @@
 # Many thanks to Dr. Denis Infanger for reviewing the code and pointing out more 
 # efficient computations and helping to implement them
 
-# Libraries required to run the code
+# Libraries required to run the code if not already installed run first this line
+# install.packages(c('ggplot2', 'dplyr', 'tidyr', 'patchwork', 'cowplot', 'ggpubr'))
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -213,7 +214,7 @@ print(comparison_result)
 
 #                    LOADING and PREPARING STRINGER's DATA
 # #############################################################################
-# Loading PCO2, pH, PO2 values from Figure 1 of Stringer's 1994 article:
+# Loading PCO2, pH, PO2 values from Figure 4 of Stringer's 1994 article:
 # Stringer W, Wasserman K, Casaburi R, Porszasz J, Maehara K, French W. 
 # "Lactic acidosis as a facilitator of oxyhemoglobin dissociation during exercise" 
 # Journal of Applied Physiology. 1994 Apr;76(4):1462–7.
