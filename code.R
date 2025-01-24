@@ -708,22 +708,22 @@ Figure_4 <-
   ) +
   annotate(
     "text",
-    x = 2,
-    y = 0.006,
-    label = "VT1 amid sample 7 & 8 -->",
+    x = 0.2,
+    y = 0.00606,
+    label = "GET amid sample 7 & 8 ->",
     hjust = 0,
     vjust = 1,
-    size = 4,  
+    size = 4.5,  
     color = "black"
   ) +
   annotate(
     "text",
-    x = 2,
+    x = 0.2,
     y = 0.0077,
-    label = "Sample 4 passing inflection -->",
+    label = "Sample 4 passing inflection ->",
     hjust = 0,
     vjust = 1,
-    size = 4,  
+    size = 4.5,  
     color = "black"
   ) +
   annotate(
@@ -733,7 +733,7 @@ Figure_4 <-
     label = "Inflection points",
     hjust = 0,
     vjust = 1,
-    size = 4,  
+    size = 4.5,  
     color = "black"
   ) +
   annotate(
@@ -743,27 +743,27 @@ Figure_4 <-
     label = "P50s",
     hjust = 0,
     vjust = 1,
-    size = 4,  
+    size = 4.5,  
     color = "black"
   ) +
   annotate(
     "text",
     x = 24,
     y = 0.0025,
-    label = "Inflections and Intersection",
+    label = "Inflections & Intersection",
     hjust = 0,
     vjust = 1,
-    size = 4,  
+    size = 4.5,  
     color = "black"
   ) +
-  annotate("point",   x = 1,   y = 0.0110, shape = 21, size = 1.5, color = "#000000", fill = "#1874CD") +
-  annotate("text",    x = 2.6, y = 0.0110, label = "Blood Samples", hjust = 0, size = 4) +
-  annotate("segment", x = 1,   y = 0.0106, xend = 2, yend = 0.0106, color = "#5C5C5C", size = 1) +
-  annotate("text",    x = 2.6, y = 0.0106, label = expression(O[2]~Dissociation~Curves), hjust = 0, size = 4) +
-  annotate("segment", x = 1,   y = 0.0102, xend = 2, yend = 0.0102, color = "#D55E00", size = 1) +
-  annotate("text",    x = 2.6, y = 0.0102, label = expression(CO[2]~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4) +
-  annotate("segment", x = 1,   y = 0.0098, xend = 2, yend = 0.0098, color = "#009E73", size = 1) +
-  annotate("text",    x = 2.6, y = 0.0098, label = expression(H^"+"~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4) +
+  annotate("point",   x = 0.2,   y = 0.0113, shape = 21, size = 1.5, color = "#000000", fill = "#1874CD") +
+  annotate("text",    x = 1.3, y = 0.0113, label = "Blood Samples", hjust = 0, size = 4.5) +
+  annotate("segment", x = 0.2,   y = 0.0109, xend = 1.2, yend = 0.0109, color = "#5C5C5C", size = 1) +
+  annotate("text",    x = 1.3, y = 0.0109, label = expression(O[2]~Dissociation~Curves), hjust = 0, size = 4.5) +
+  annotate("segment", x = 0.2,   y = 0.0105, xend = 1.2, yend = 0.0105, color = "#D55E00", size = 1) +
+  annotate("text",    x = 1.3, y = 0.0105, label = expression(CO[2]~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4.5) +
+  annotate("segment", x = 0.2,   y = 0.0101, xend = 1.2, yend = 0.0101, color = "#009E73", size = 1) +
+  annotate("text",    x = 1.3, y = 0.0101, label = expression(H^"+"~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4.5) +
   geom_point( # Inflection points of the ODCs
     data = inflection_points,
     aes(x = PO2, y = O2bound/Hct_global),
@@ -808,9 +808,9 @@ Figure_4 <- Figure_4 +
   ) +
   theme_minimal()+
   theme(
-    axis.title.y.right = element_text(angle = 90, size = 10),  # Increased axis title font size
-    axis.title.x = element_text(size = 10),  # Increased axis title font size
-    axis.title.y = element_text(size = 10)   # Increased axis title font size
+    axis.title.y.right = element_text(angle = 90, size = 12),  # Increased axis title font size
+    axis.title.x = element_text(size = 12),  # Increased axis title font size
+    axis.title.y = element_text(size = 12)   # Increased axis title font size
   )
 
 # Print the updated plot
@@ -880,11 +880,11 @@ print(Figure_4)
 Figure_4 <- Figure_4 +
   theme(axis.title.y.right = element_text(color = "black"))+
   theme(
-    axis.title.x = element_text(size = 10),      # Increased axis title font size
-    axis.title.y = element_text(size = 10),      # Increased axis title font size
-    axis.text.x = element_text(size = 10),       # Increase x-axis ticks font size
-    axis.text.y = element_text(size = 10),       # Increase left y-axis ticks font size
-    axis.text.y.right = element_text(size = 10)  # Increase right y-axis ticks font size
+    axis.title.x = element_text(size = 12),      # Increased axis title font size
+    axis.title.y = element_text(size = 12),      # Increased axis title font size
+    axis.text.x = element_text(size = 12),       # Increase x-axis ticks font size
+    axis.text.y = element_text(size = 12),       # Increase left y-axis ticks font size
+    axis.text.y.right = element_text(size = 12)  # Increase right y-axis ticks font size
   )
 
 print(Figure_4)
@@ -1113,7 +1113,7 @@ for (i in 1:num_panels) {
         "text",
         x = 0,
         y = 0.010,
-        label = "VT1 mid 7 to 8",
+        label = "GET mid 7 to 8",
         color = "black",
         size = 3,
         hjust = 0
@@ -1166,7 +1166,9 @@ Figure_5 <- Figure_5 +
 # Display the multi-panel plot
 print(Figure_5)
 
-ggsave("Figure_5.pdf", Figure_5, width = 18, height = 18, units = "cm", dpi = 300, device = "pdf")
+# ggsave("Figure_5.pdf", Figure_5, width = 18, height = 18, units = "cm", dpi = 300, device = "pdf")
+# ggsave("Figure_5.jpeg", Figure_5, width = 18, height = 18, units = "cm", dpi = 300, device = "pdf")
+ggsave("Figure_5.tiff", Figure_5, width = 17.4, height = 17.4, units = "cm", dpi = 600, compression = "lzw")
 
 
 #        FITTING STRINGERS DATA TO RUN FITTED VALUES THROUGH DASH's MODEL
@@ -1185,7 +1187,7 @@ Figure_2A <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 18, yend = 21,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 17.3, label = "VT1", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 17.3, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
   stat_regline_equation(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
     formula = y ~ poly(x, 3), 
@@ -1219,7 +1221,7 @@ Figure_2B <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 55, yend = 65,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 53, label = "VT1", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 53, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
   stat_regline_equation(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
     formula = y ~ x, 
@@ -1252,7 +1254,7 @@ Figure_2C <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 7.0, yend = 7.05,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 6.98, label = "VT1", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 6.98, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
   stat_regline_equation(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
     formula = y ~ poly(x, 2), 
@@ -1287,7 +1289,7 @@ Figure_2D <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) +
   geom_segment(x = 64, xend = 64, y = 0.4, yend = 0.3,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 0.43, label = "VT1", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 0.43, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
   stat_regline_equation(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
     formula = y ~ poly(x, 3),
@@ -1306,7 +1308,14 @@ print(Figure_2D)
 # Combine all updated subplots into a grid
 Figure_2 <- plot_grid(Figure_2A, Figure_2B, Figure_2C, Figure_2D, nrow = 2, labels = c('A', 'B', 'C', 'D'))
 
-ggsave("Figure_2.pdf", Figure_2, width = 18, height = 12, units = "cm")
+# ggsave("Figure_2.pdf", Figure_2, width = 18, height = 12, units = "cm")
+# ggsave("Figure_2.jpeg", Figure_2, width = 18, height = 12, units = "cm")
+# ggsave("Figure_2.eps", Figure_2, width = 18, height = 12, units = "cm", device = cairo_ps)
+ggsave("Figure_2.tiff", Figure_2, width = 17.4, height = 11.6, units = "cm", dpi = 600, compression = "lzw")
+
+
+
+
 
 
 # Predict Sat_measured for new %VO2max values (1 to 100%)
@@ -1387,28 +1396,6 @@ combined_data <- rbind(data_selected, fitted_values_selected)
 print(combined_data)
 
 
-# First, ensure you have the original and fitted data separated
-data_selected <- data[, c('pcVO2max', 'DPGrbc')] # Original data
-fitted_values_selected <- fitted_values[, c('pcVO2max', 'DPGrbc_fitted')] # Fitted data
-
-# Plotting 2,3-DPG vs. %VO2max
-Figure_3A <- ggplot() +
-  # Plot original data as points
-  geom_point(data = data_selected, aes(x = pcVO2max, y = DPGrbc), color = "black", size = 2) +
-  # Plot fitted data as a line
-  geom_line(data = fitted_values_selected, aes(x = pcVO2max, y = DPGrbc_fitted), color = "black", linewidth = 0.5) +
-  labs(x = expression("%" * dot(V) * O[2] ~ max), y = "2,3-DPG (mM)") +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  scale_y_continuous(
-    breaks = seq(0, 0.006, by = 0.001),  # Specify the breaks in original units
-    limits = c(0, 0.006),                # Keep the limits in the original scale
-    labels = scales::label_number(scale = 1000)  # Multiply the axis labels by 1000 to convert to mM
-  ) +  
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-# Print the combined plot
-print(Figure_3A)
 
 
 # Calculate means and differences
@@ -1416,7 +1403,7 @@ combined_data$Mean <- rowMeans(combined_data[,c('Sat_measured', 'SHbO2kin')], na
 combined_data$Difference <- combined_data$Sat_measured - combined_data$SHbO2kin
 
 # Plot Bland-Altman Plot
-Figure_3B <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
+Figure_3A <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
   geom_point(alpha = 0.5, size = 1.5) +
   geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Zero line
   geom_hline(yintercept = mean(combined_data$Difference, na.rm = TRUE), col = "red") +
@@ -1434,7 +1421,34 @@ Figure_3B <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
   theme_minimal() +
   theme(text = element_text(size = 9), axis.text = element_text(size = 8))
 
+print(Figure_3A)
+
+
+
+
+# First, ensure you have the original and fitted data separated
+data_selected <- data[, c('pcVO2max', 'DPGrbc')] # Original data
+fitted_values_selected <- fitted_values[, c('pcVO2max', 'DPGrbc_fitted')] # Fitted data
+
+# Plotting 2,3-DPG vs. %VO2max
+Figure_3B <- ggplot() +
+  # Plot original data as points
+  geom_point(data = data_selected, aes(x = pcVO2max, y = DPGrbc), color = "black", size = 2) +
+  # Plot fitted data as a line
+  geom_line(data = fitted_values_selected, aes(x = pcVO2max, y = DPGrbc_fitted), color = "black", linewidth = 0.5) +
+  labs(x = expression("%" * dot(V) * O[2] ~ max), y = "2,3-DPG (mM)") +
+  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
+  scale_y_continuous(
+    breaks = seq(0, 0.006, by = 0.001),  # Specify the breaks in original units
+    limits = c(0, 0.006),                # Keep the limits in the original scale
+    labels = scales::label_number(scale = 1000)  # Multiply the axis labels by 1000 to convert to mM
+  ) +  
+  theme_minimal() +
+  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
+
+# Print the combined plot
 print(Figure_3B)
+
 
 
 # Combine the updated Figure 6 panels into one figure
@@ -1448,8 +1462,9 @@ Figure_3 <- plot_grid(
 # Print the updated Figure 6
 print(Figure_3)
 
-ggsave("Figure_3.pdf", Figure_3, width = 18, height = 5.5, units = "cm")
-
+# ggsave("Figure_3.pdf", Figure_3, width = 18, height = 5.5, units = "cm")
+# ggsave("Figure_3.jpeg", Figure_3, width = 18, height = 5.5, units = "cm")
+ggsave("Figure_3.tiff", Figure_3, width = 17.4, height = 5.32, units = "cm", dpi = 600, compression = "lzw")
 
 
 #            CALCULATE DASH's OUTPUT FOR fitted_values POINTS
@@ -1530,7 +1545,7 @@ ggplot(data = fitted_values, aes(x = pcVO2max, y = results_fitvalues_df$KHbO2)) 
   annotate("text", x = 32.5, y = 11000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5)+
   geom_segment(x = 56, xend = 56, y = 15000, yend = 12800,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 56, y = 16500, label = "VT1", size = 2.7, hjust = 0.5) +
+  annotate("text", x = 56, y = 16500, label = "GET", size = 2.7, hjust = 0.5) +
   theme_minimal() +
   theme(text = element_text(size = 9), axis.text = element_text(size = 10)) 
 
@@ -1652,134 +1667,12 @@ Figure_4_updated <-
              size = 2) # Adjust size if necessary
 
 # Save the updated figure
-ggsave("Figure_4.pdf", Figure_4_updated, width = 15, height = 17, units = "cm")
+# ggsave("Figure_4.tiff", Figure_4_updated, width = 15, height = 17, units = "cm", dpi = 600, compression = "lzw")
+# ggsave("Figure_4.tiff", Figure_4_updated, width = 16, height = 18.13, units = "cm", dpi = 600, compression = "lzw")
+ggsave("Figure_4.tiff", Figure_4_updated, width = 15, height = 17, units = "cm", dpi = 600, compression = "lzw")
 
 
-#                                   FIGURE 6 
-################################################################################
-Figure_6A <- 
-  ggplot(data = results_df, aes(x = HbNH3p, y = P50)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values,
-    aes(x = results_fitvalues_df$HbNH3p, y = results_fitvalues_df$P50), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  labs(x = expression(H^"+"~"bound (mM)"),
-       y = "P50 (mmHg)") +
-  scale_x_continuous(labels = function(x) x * 1000) +  # Multiply x-axis values by 1000
-  annotate("text", x = 0.002100000, y = 31.8, label = "Sample 4 \n passing inflection", size = 2.7, hjust = 0.5) +
-  annotate("segment", x = 0.002167339, xend = 0.002167339, y = 30.8, yend = 29.8,
-           arrow = arrow(length = unit(0.2, "cm")), color = "black") +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8)) 
-
-
-Figure_6B <- 
-  ggplot(data = results_df, aes(x = CO2bound/Hct_global, y = P50)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_path(
-    data = fitted_values,
-    aes(x = results_fitvalues_df$CO2bound/Hct_global, y = results_fitvalues_df$P50), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  labs(
-    x = expression(CO[2]~"bound (mM)"),
-    y = "P50 (mmHg)"
-  ) +
-  scale_x_continuous(labels = function(x) x * 1000) +  # Multiply x-axis values by 1000
-  annotate("text", x = 0.00195, y = 31.2, label = "Sample 4 \n passing inflection", size = 2.7, hjust = 0.5) +
-  annotate("segment", x = 0.00207, xend = 0.00213, y = 30.5, yend = 29.5,
-           arrow = arrow(length = unit(0.2, "cm")), color = "black") +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_6C <- 
-  ggplot(data = results_df, aes(x = SHbO2, y = P50)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values,
-    aes(x = results_fitvalues_df$SHbO2, y = results_fitvalues_df$P50), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  labs(
-    x = expression(Fractional~O[2]*Hb~saturation~"(% Saturation/100)"),
-    y = "P50 (mmHg)"
-  ) +
-  annotate("text", x = 0.36, y = 32, label = "Sample 4 \n passing inflection", size = 2.7, hjust = 0.5) +
-  annotate("segment", x = 0.36, xend = 0.36, y = 31, yend = 30,
-           arrow = arrow(length = unit(0.2, "cm")), color = "black") +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_6D <- 
-  ggplot(data = results_df, aes(x = CO2bound/Hct_global, y = HbNH3p)) +
-  geom_point(shape = 21, color = data_points_edge, size = 1.5, fill = "black") +
-  geom_path(
-    data = fitted_values,
-    aes(x = results_fitvalues_df$CO2bound/Hct_global, y = results_fitvalues_df$HbNH3p),
-    color = "black",
-    linewidth = 0.5
-  ) +
-  labs(x = expression(CO[2]~"bound (mM)"), y = expression(H^"+"~"bound (mM)")) +
-  scale_x_continuous(labels = function(x) x * 1000) +  # Multiply x-axis values by 1000
-  scale_y_continuous(
-    labels = function(y)
-      y * 1000,
-    limits = c(0.0016, 0.0034),
-    breaks = seq(0.0016, 0.0035, by = 0.0002)
-  ) +  # Multiply y-axis values by 1000
-  annotate(
-    "text",
-    x = results_df$CO2bound[4] / Hct_global - 0.00003,
-    y = 0.00172,
-    label = "Sample 4 \n passing inflection",
-    size = 2.7,
-    hjust = 0.5
-  ) +
-  annotate(
-    "segment",
-    x = results_df$CO2bound[4] / Hct_global,
-    xend = results_df$CO2bound[4] / Hct_global,
-    y = 0.0019,
-    yend = 0.0021,
-    arrow = arrow(length = unit(0.2, "cm")),
-    color = "black"
-  ) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-# Combine the updated Figure 6 panels into one figure
-Figure_6 <- plot_grid(Figure_6A, Figure_6B, Figure_6C, Figure_6D, nrow = 2, labels = c('A', 'B', 'C', 'D'))
-
-ggsave("Figure_6.pdf", Figure_6, width = 18, height = 11, units = "cm")
-
-
-#                                   FIGURE 7
+#                                   FIGURE 6
 #                        CALCULATE HCO3- from PCO2 and pH
 ################################################################################
 # HCO3m calculation based on Beaver equation derived from Siggard-Andersen Normogram
@@ -1799,7 +1692,7 @@ fitted_values$pHpl_fitted <- fitted_values$pHrbc_fitted - log10(0.69)
 # Calculate the HCO3m for the fitted values using the plasma pH
 fitted_values$HCO3m_fitted <- HCO3m_SA(fitted_values$PCO2_fitted, fitted_values$pHpl_fitted)
 
-Figure_7A <-
+Figure_6A <-
   ggplot(data = data, aes(x = PO2, y = results_df$HbNH2)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1822,7 +1715,7 @@ Figure_7A <-
   theme_minimal() +
   theme(text = element_text(size = 9), axis.text = element_text(size = 8))
 
-Figure_7B <- 
+Figure_6B <- 
   ggplot(data = data, aes(x = PO2, y = results_df$HbNHCOOm)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1850,7 +1743,7 @@ Figure_7B <-
   )
 
 
-Figure_7C <-
+Figure_6C <-
   ggplot(data = data, aes(x = PO2, y = results_df$O2HbNHCOOm)) +
   geom_point(
     aes(fill = "Original Data"), shape = 21,
@@ -1875,7 +1768,7 @@ Figure_7C <-
   )  
 
 
-Figure_7D<-
+Figure_6D<-
   ggplot(data = data, aes(x = PO2, y = results_df$HbNH3p)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1901,7 +1794,7 @@ Figure_7D<-
   )      
 
 
-Figure_7E <-
+Figure_6E <-
   ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH2)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1924,7 +1817,7 @@ Figure_7E <-
   )    
 
 
-Figure_7F <-
+Figure_6F <-
   ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH3p)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1950,7 +1843,7 @@ Figure_7F <-
   )     
 
 
-Figure_7G <-
+Figure_6G <-
   ggplot(data = data, aes(x = PO2, y = HCO3m)) +
   geom_point(
     aes(fill = "Original Data"), shape = 21, color = data_points_edge, size = 1.5, fill = "black") +
@@ -1966,233 +1859,13 @@ Figure_7G <-
     plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
   )     
 # Print the updated Figure 7A
-print(Figure_7G)
+print(Figure_6G)
 
 
-Figure_7 <- plot_grid(Figure_7A, Figure_7B, Figure_7C, Figure_7D, Figure_7E, Figure_7F, Figure_7G,
+Figure_6 <- plot_grid(Figure_6A, Figure_6B, Figure_6C, Figure_6D, Figure_6E, Figure_6F, Figure_6G,
                       nrow = 3, labels = c('A', 'B', 'C', 'D', 'E', 'F', 'G')
 )
 
-ggsave("Figure_7.pdf", Figure_7, width = 18, height = 16, units = "cm")
-
-
-#                                    Figure 8
-################################################################################
-Figure_8A <-
-  ggplot(data = data, aes(x = pcVO2max, y = results_df$KHbO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = pcVO2max, y = results_fitvalues_df$KHbO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 55, xend = 40, y = 19000, yend = 17200, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 70, y = 21000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression("%" * dot(V) * O[2] ~ max), y = expression('KHbO'[2] ~ (M^-1))) +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8B <- 
-  ggplot(data = data, aes(x = pHrbc, y = results_df$KHbO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = pHrbc_fitted, y = results_fitvalues_df$KHbO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 7.1, xend = 7.15, y = results_df$KHbO2[4], yend = results_df$KHbO2[4], 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 7.01, y = 17000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression('pH'[RBC]), y = expression('KHbO'[2] ~ (M^-1))) +
-  #  scale_x_continuous(breaks = seq(15, 30, by = 2)) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8C <- 
-  ggplot(data = data, aes(x = PCO2, y = results_df$KHbO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = PCO2_fitted, y = results_fitvalues_df$KHbO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 60, xend = 55, y = 19000, yend = results_df$KHbO2[4] + 500, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 70, y = 21000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression("PCO"[2] ~ "(mmHg)"), y = expression('KHbO'[2] ~ (M^-1))) +
-  #  scale_x_continuous(breaks = seq(15, 30, by = 2)) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8D <-
-  ggplot(data = data, aes(x = pcVO2max, y = results_df$KHbCO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = pcVO2max, y = results_fitvalues_df$KHbCO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 32.5, xend = 32.5, y = 55, yend = 60, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 32.5, y = 51, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression("%" * dot(V) * O[2] ~ max), y = expression('KHbCO'[2] ~ (M^-1))) +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8E <- 
-  ggplot(data = data, aes(x = pHrbc, y = results_df$KHbCO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = pHrbc_fitted, y = results_fitvalues_df$KHbCO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 7.05, xend = 7.15, y = results_df$KHbCO2[4], yend = results_df$KHbCO2[4], 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 7.0, y = 63, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression('pH'[RBC]), y = expression('KHbCO'[2] ~ (M^-1))) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8F <- 
-  ggplot(data = data, aes(x = PO2, y = results_df$KHbCO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$KHbCO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 25, xend = 24, y = 55, yend = 60.5, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 25.5, y = 50, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression('KHbCO'[2] ~ (M^-1))) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8G <- 
-  ggplot(data = data, aes(x = PO2, y = results_df$KHbO2)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$KHbO2), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  geom_segment(x = 22, xend = 23, y = 19000, yend = results_df$KHbO2[4] + 500, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 21.5, y = 21000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression('KHbO'[2] ~ (M^-1))) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8H <-
-  ggplot(data = data, aes(x = PO2, y = results_df$nH)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$nH), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = "nH") +
-  scale_x_continuous(breaks = seq(15, 30, by = 2)) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8I <-
-  ggplot(data = data, aes(x = pcVO2max, y = results_df$nH)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = pcVO2max, y = results_fitvalues_df$nH), 
-    color = "black", 
-    linewidth = 0.5
-  ) +
-  labs(x = expression("%" * dot(V) * O[2] ~ max), y = "nH") +
-  theme_minimal() +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  geom_segment(x = 32.5, xend = 32.5, y = 2.58, yend = 2.60, 
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") + # Add the upward arrow
-  annotate("text", x = 32.5, y = 2.565, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5) +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-
-Figure_8 <- plot_grid(Figure_8A, Figure_8B, Figure_8C, Figure_8D, Figure_8E, Figure_8F, Figure_8G, Figure_8H, Figure_8I,
-                      nrow = 3,
-                      labels = c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I')
-)
-
-ggsave("Figure_8.pdf", Figure_8, width = 18, height = 16, units = "cm")
-
+# ggsave("Figure_6.pdf", Figure_6, width = 18, height = 16, units = "cm")
+ggsave("Figure_6.tiff", Figure_6, width = 17.4, height = 15.47, units = "cm", dpi = 600, compression = "lzw")
 
