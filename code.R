@@ -6,7 +6,7 @@
 # efficient computations and helping to implement them
 
 # Libraries required to run the code if not already installed run first this line
-# install.packages(c('ggplot2', 'dplyr', 'tidyr', 'patchwork', 'cowplot', 'ggpubr'))
+# install.packages(c('ggplot2', 'dplyr', 'tidyr', 'pracma', 'patchwork', 'cowplot', 'ggpubr'))
 library(ggplot2)
 library(dplyr)
 library(tidyr)
