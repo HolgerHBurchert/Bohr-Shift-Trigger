@@ -1,5 +1,5 @@
 # Bohr-Shift-Trigger
-This repository contains the entire data set, analyses code and figures for “Oxygen Dissociation Curve Inflection Point: Hemoglobin's Built-In Bohr Effect Trigger”
+This repository contains the entire data set, analyses code and figures for “Oxygen Dissociation Curve Inflection Point During Incremental Exercise: A Trigger for the Bohr Effect”
 The data in Stringer_1994.csv were extracted from Figure 1 from the article:
 
 Stringer W, Wasserman K, Casaburi R, Porszasz J, Maehara K, French W. 
