@@ -189,7 +189,7 @@ SHbO2CO2 <- function(PO2 = 100, PCO2 = 40, pHrbc = 7.24, DPGrbc = 0.00465, Temp 
 # 6. O2HbNH3+ <--> O2HbNH2 + H+; K6dp = 1.2e-8 M
 #---------------------------------------------------------------------------------------
 
-
+# ##############################################################################
 #                   VALIDATING ABOVE VERSION of Dash's MODEL 
 # ##############################################################################
 # Verifying that this R implementation matches Prof. Dash's original Matlab code,
@@ -212,9 +212,10 @@ comparison_result <- identical(SHbO2kin_Matlab, SHbO2kin_R)
 print(comparison_result) 
 
 
+# #############################################################################
 #                    LOADING and PREPARING STRINGER's DATA
 # #############################################################################
-# Loading PCO2, pH, PO2 values from Figure 1 of Stringer's 1994 article:
+# Loading data from Figure 1 of Stringer's 1994 article:
 # Stringer W, Wasserman K, Casaburi R, Porszasz J, Maehara K, French W. 
 # "Lactic acidosis as a facilitator of oxyhemoglobin dissociation during exercise" 
 # Journal of Applied Physiology. 1994 Apr;76(4):1462–7.
@@ -228,50 +229,22 @@ names(data)[names(data) == "pH"] <- "pHrbc" # Now pH resembles pHrbc, renamed ac
 names(data)[names(data) == "pco2"] <- "PCO2" # rename pco2 column to PCO2 for consistency
 data$Sat_measured <- data$Sat_measured / 100 # Convert Sat_measured to fractional saturation (%saturation/100)
 
-# Set global values for Temp, Hbrbc, Hct
-Temp_global  <- 37 # Temperature of blood in Dash's model
-Hbrbc_global <- 0.00528 # Hemoglobin concentration in red blood cells in M
-Hct_global   <- 0.45 # Hematocrit 
-max_bounded  <- 4*Hbrbc_global # The maximum of the bounded variables as PO2->100, to create right hand y-axis later in Figure 4
+Temp_start  <- 37.0  # Temperature for first data point
+Temp_end    <- 38.0  # Temperature for last data point
+num_samples <- nrow(data)  # Number of samples
+data$Temp_dynamic <- seq(Temp_start, Temp_end, length.out = num_samples) # Linearly interpolate temperature 
+
+Hbrbc_global  <- 0.00528 # Hbrbc value for whole code
+Hct_global    <- 0.45 # Hct value for whole code 
+DPGrbc_global <- 0.00290 # DPGrbc values for whole code
+max_bounded   <- 4*Hbrbc_global # The max of bounded variables as PO2->100, to create right y-axis in Figure 4
+
+data$DPGrbc <- rep(DPGrbc_global, nrow(data))
 
 
-#                             FINDING 2,3-DPG VALUES
 ################################################################################
-# Dash's model calculates O2 saturation from PO2, PCO2, pH, Hbrbc, Hct, Temp, and 2,3-DPG.
-# Given Stringer's PO2, PCO2, pH, and measured O2 saturation (Sat_measured), with Temp=37, 
-# Hbrbc=0.00528, and Hct=0.45, 2,3-DPG is the only unknown variable and can be back-calculated.
-# Works as Hbrbc and Hct do not impact O2 saturation, and Temp is constant during the 10min test.
-
-# Returns difference between calculated and observed O2 saturation for a given DPGrbc,
-# used to find the DPGrbc that gives a root (zero) for this difference.
-find_dpg <- function(dpg, i, data) {
-  # Extract measured values for Stringer's Sample at index i
-  PO2   <- data$PO2[i]
-  PCO2  <- data$PCO2[i]
-  pHrbc <- data$pHrbc[i]
-  Sat_measured_fraction <- data$Sat_measured[i]
-  # Return the difference between the modeled and measured O2 saturation
-  SHbO2CO2(PO2,
-           PCO2,
-           pHrbc,
-           dpg,
-           Temp = Temp_global,
-           Hbrbc = Hbrbc_global,
-           Hct = Hct_global)$SHbO2kin - Sat_measured_fraction
-}
-
-# For each row in 'data', uniroot finds the DPGrbc value within the specified interval 
-# that makes find_dpg return zero. uniroot adjusts DPGrbc until modeled & observed O2 saturation match.
-data$DPGrbc <-
-  sapply(seq_len(nrow(data)), FUN = \(i) (uniroot(
-    find_dpg,
-    interval = c(1e-10, 0.01),
-    i = i,
-    data = data,
-    tol = 1e-20 
-  )$root))
-
-# Calculate saturation based on the found DPGrbc values
+# Calculate O2Hb Saturation & Compare to measured one via Bland-Altman Analysis
+################################################################################
 data$SHbO2kin <-
   unlist(
     mapply(
@@ -280,17 +253,14 @@ data$SHbO2kin <-
       PCO2   = data$PCO2,
       pHrbc  = data$pHrbc,
       DPGrbc = data$DPGrbc,
-      Temp   = Temp_global,
+      Temp   = data$Temp_dynamic,
       Hbrbc  = Hbrbc_global,
       Hct    = Hct_global
     )["SHbO2kin",]
   )
 
 
-#                COMPARE MEASURED VS CALCULATED O2 SATURATION
-################################################################################
-# Creating Bland-Altman plot to compare measured O2 saturation with the calculated 
-# O2 saturation based on the back-calculated 2,3-DPG values.
+# Calculate mean and difference for Bland-Altman plot
 data$Mean <- rowMeans(data[,c('Sat_measured', 'SHbO2kin')], na.rm=TRUE)
 data$Difference <- data$Sat_measured - data$SHbO2kin
 
@@ -315,41 +285,19 @@ bland_altman <- ggplot(data, aes(x = Mean, y = Difference)) +
 print(bland_altman)
 
 
-#             2,3-DPG PLAUSIBILITY CHECK: PLOT DPGrbc VS %VO2MAX
 ################################################################################
-# Plot DPGrbc versus %VO2max, to see if this also makes physiologically sense.
-DPGrbc_vs_pcVO2max <-
-  ggplot(data = data, aes(x = pcVO2max, y = DPGrbc)) +
-  geom_path(aes(group = 1), color = "black", linewidth = 0.5) +
-  geom_point(aes(fill="Original Data"), shape = 21, color = "black", size = 1.5, fill = "black") +
-  labs(x = expression("%VO"[2] ~ max), y = "2,3-DPG (M)") +
-  scale_y_continuous(breaks = seq(0, 0.008, by = 0.001)) +
-  scale_y_continuous(breaks = seq(0, 0.008, by = 0.001), limits = c(0, 0.008)) +  # Setting explicit y-axis limits
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-print(DPGrbc_vs_pcVO2max)
-
-# Creating multi-panel figure
-DPG_validation <- plot_grid(bland_altman, DPGrbc_vs_pcVO2max, nrow = 1, labels = c('A', 'B'))
-
-
 #            CALCULATE DASH's OUTPUTS FOR STRINGER's 12 DATA POINTS
 ################################################################################
-# Using the successfully back-calculated 2,3-DPG values, all necessary variables 
-# (PO2, PCO2, pHrbc, Temp, Hbrbc, Hct, and 2,3-DPG) are now available for each of 
-# Stringer's 12 data points, allowing the application of Dash's model to calculate outputs.
-
-# Adjusted function call within the apply loop to use DPGrbc values from the data dataframe
+# Adjusted function call within the apply loop to use DPGrbc values from the data df
 results <- apply(data, 1, function(row) {
   SHbO2CO2(
-    PO2 = row['PO2'],        # measured by Stringer 
-    PCO2 = row['PCO2'],      # measured by Stringer
-    pHrbc = row['pHrbc'],    # plasma pH measured by Stringer, pHrbc calculated by rearranging Gibbs Donnan condition
-    DPGrbc = row['DPGrbc'],  # Now using back calculated DPGrbc from the data frame
-    Temp = Temp_global,      # increases <1 degree celcius and standardized to 37 degree celcius in blood gas analysis     
-    Hbrbc = Hbrbc_global,    # does not affect saturation calculation
-    Hct = Hct_global         # does not affect saturation calculation
+    PO2 = row['PO2'],        
+    PCO2 = row['PCO2'],      
+    pHrbc = row['pHrbc'],    
+    DPGrbc = row['DPGrbc'],  
+    Temp = row['Temp_dynamic'],   
+    Hbrbc = Hbrbc_global,    
+    Hct = Hct_global         
   )
 })
 
@@ -394,12 +342,13 @@ if (!is.null(colnames(results_df))) {
 head(results_df)
 
 
+################################################################################
 #                   RECREATING FIGURE 4 of STRINGER et al.
 ################################################################################
-# In this section, Figure 4 of Stringer et al. is recreated. This needs 4 steps:
-# 1st, calculating Dash's ODCs for Stringers 12 data points (to plot them)
+# Now Figure 4B of Stringer et al. is recreated for the incremental exercise data. This needs 4 steps:
+# 1st, calculating Dash's in vitro ODCs for Stringers 12 data points (to plot them)
 # 2nd, get PO2 and O2 saturation of Stringers 12 data points (to plot them)
-# 3rd, get inflections for each ODC (to plot them)
+# 3rd, get inflections for each in vitro ODC (to plot them)
 # 4th, get the P50 values to plot them as well 
 
 #               1st, CALCULATE DASH ODCs FOR STRINGERS 12 DATA POINTS    
@@ -429,7 +378,7 @@ for (i in 1:nrow(data)) {
     PCO2 = data$PCO2[i],               
     pHrbc = data$pHrbc[i],             
     DPGrbc = data$DPGrbc[i],           
-    Temp = Temp_global,                         
+    Temp = data$Temp_dynamic[i],                         
     Hbrbc = Hbrbc_global,                      
     Hct = Hct_global
   )
@@ -476,7 +425,7 @@ deriv_fun <- function(x,
         PCO2 = data$PCO2[i],
         pHrbc = data$pHrbc[i],
         DPGrbc = data$DPGrbc[i],
-        Temp = Temp_global,
+        Temp = data$Temp_dynamic[i],
         Hbrbc = Hbrbc_global,
         Hct = Hct_global
       )[[returnVar]]
@@ -498,7 +447,7 @@ curve(
     PCO2 = data$PCO2[i],
     pHrbc = data$pHrbc[i],
     DPGrbc = data$DPGrbc[i],
-    Temp = Temp_global,
+    Temp = data$Temp_dynamic[i],
     Hbrbc = Hbrbc_global,
     Hct = Hct_global
   )[["O2bound"]] / Hct_global,
@@ -513,7 +462,7 @@ curve((\(x) (
     PCO2 = data$PCO2[i],
     pHrbc = data$pHrbc[i],
     DPGrbc = data$DPGrbc[i],
-    Temp = Temp_global,
+    Temp = data$Temp_dynamic[i],
     Hbrbc = Hbrbc_global,
     Hct = Hct_global
   )[["CO2bound"]] / Hct_global
@@ -530,7 +479,7 @@ curve(
     PCO2 = data$PCO2[i],
     pHrbc = data$pHrbc[i],
     DPGrbc = data$DPGrbc[i],
-    Temp = Temp_global,
+    Temp = data$Temp_dynamic[i],
     Hbrbc = Hbrbc_global,
     Hct = Hct_global
   )[["HbNH3p"]],
@@ -626,7 +575,7 @@ data$inflection_point_SHbO2 <-
   sapply(seq_len(nrow(data)), FUN = \(i)(
     uniroot(
       deriv_fun,
-      interval = c(15, 30),
+      interval = c(10, 40),
       tol = 1e-20,
       i = i,
       returnVar = "O2bound"
@@ -642,7 +591,7 @@ inflection_points <- data.frame(PO2 = data$inflection_point_SHbO2,
                                     PCO2 = data$PCO2,
                                     pHrbc = data$pHrbc,
                                     DPGrbc = data$DPGrbc,
-                                    Temp = Temp_global,
+                                    Temp = data$Temp_dynamic,
                                     Hbrbc = Hbrbc_global,
                                     Hct = Hct_global
                                   )["O2bound",]
@@ -709,7 +658,7 @@ Figure_4 <-
   annotate(
     "text",
     x = 0.2,
-    y = 0.00606,
+    y = 0.00577,
     label = "GET amid sample 7 & 8 ->",
     hjust = 0,
     vjust = 1,
@@ -719,7 +668,7 @@ Figure_4 <-
   annotate(
     "text",
     x = 0.2,
-    y = 0.0077,
+    y = 0.0079,
     label = "Sample 4 passing inflection ->",
     hjust = 0,
     vjust = 1,
@@ -728,9 +677,9 @@ Figure_4 <-
   ) +
   annotate(
     "text",
-    x = 30,
+    x = 33,
     y = 0.0076,
-    label = "Inflection points",
+    label = "Inflection\npoints",
     hjust = 0,
     vjust = 1,
     size = 4.5,  
@@ -738,8 +687,8 @@ Figure_4 <-
   ) +
   annotate(
     "text",
-    x = 37,
-    y = 0.0106,
+    x = 38,
+    y = 0.0112,
     label = "P50s",
     hjust = 0,
     vjust = 1,
@@ -747,23 +696,94 @@ Figure_4 <-
     color = "black"
   ) +
   annotate(
-    "text",
-    x = 24,
-    y = 0.0025,
-    label = "Inflections & Intersection",
-    hjust = 0,
-    vjust = 1,
-    size = 4.5,  
-    color = "black"
+    "point",
+    x = 0.2,
+    y = 0.0113,
+    shape = 21,
+    size = 1.5,
+    color = "#000000",
+    fill = "#1874CD"
   ) +
-  annotate("point",   x = 0.2,   y = 0.0113, shape = 21, size = 1.5, color = "#000000", fill = "#1874CD") +
-  annotate("text",    x = 1.3, y = 0.0113, label = "Blood Samples", hjust = 0, size = 4.5) +
-  annotate("segment", x = 0.2,   y = 0.0109, xend = 1.2, yend = 0.0109, color = "#5C5C5C", size = 1) +
-  annotate("text",    x = 1.3, y = 0.0109, label = expression(O[2]~Dissociation~Curves), hjust = 0, size = 4.5) +
-  annotate("segment", x = 0.2,   y = 0.0105, xend = 1.2, yend = 0.0105, color = "#D55E00", size = 1) +
-  annotate("text",    x = 1.3, y = 0.0105, label = expression(CO[2]~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4.5) +
-  annotate("segment", x = 0.2,   y = 0.0101, xend = 1.2, yend = 0.0101, color = "#009E73", size = 1) +
-  annotate("text",    x = 1.3, y = 0.0101, label = expression(H^"+"~Dissociation~Curve~of~Sample~4), hjust = 0, size = 4.5) +
+  annotate(
+    "text",
+    x = 1.3,
+    y = 0.0113,
+    label = "Blood Samples",
+    hjust = 0,
+    size = 4.5
+  ) +
+  
+  annotate(
+    "segment",
+    x = 0.2,
+    y = 0.0109,
+    xend = 1.2,
+    yend = 0.0109,
+    color = "#5C5C5C",
+    size = 1
+  ) +
+  annotate(
+    "text",
+    x = 1.3,
+    y = 0.0109,
+    label = expression("In vitro " * O[2] * " Dissociation Curves"),
+    hjust = 0,
+    size = 4.5
+  ) +
+  
+  annotate(
+    "segment",
+    x = 0.2,
+    y = 0.0105,
+    xend = 1.2,
+    yend = 0.0105,
+    color = "#1874CD",
+    size = 1
+  ) +
+  annotate(
+    "text",
+    x = 1.3,
+    y = 0.0105,
+    label = expression("In vivo " * O[2] * " Dissociation Curve"),
+    hjust = 0,
+    size = 4.5
+  ) +
+  
+  annotate(
+    "segment",
+    x = 0.2,
+    y = 0.0101,
+    xend = 1.2,
+    yend = 0.0101,
+    color = "#D55E00",
+    size = 1
+  ) +
+  annotate(
+    "text",
+    x = 1.3,
+    y = 0.0101,
+    label = expression("In vivo " * CO[2] * " Dissociation Curve"),
+    hjust = 0,
+    size = 4.5
+  ) +
+  
+  annotate(
+    "segment",
+    x = 0.2,
+    y = 0.0097,
+    xend = 1.2,
+    yend = 0.0097,
+    color = "#009E73",
+    size = 1
+  ) +
+  annotate(
+    "text",
+    x = 1.3,
+    y = 0.0097,
+    label = expression("In vivo " * HbNH[3]^"+" * " curve"),
+    hjust = 0,
+    size = 4.5
+  )+
   geom_point( # Inflection points of the ODCs
     data = inflection_points,
     aes(x = PO2, y = O2bound/Hct_global),
@@ -793,14 +813,14 @@ Figure_4 <-
 
 Figure_4
 
-#                      Adding CO2bound, HbNH3p TO FIGURE 4 
+
+################################################################################
+#                     Adding Secondary Y-axis to Fig. 4 
 ################################################################################
 # Filter the data for CurveID 4
 data_for_curve_4 <- combined_curves[combined_curves$CurveID == 4, ]
 
 Figure_4 <- Figure_4 +
-  geom_line(data = data_for_curve_4, aes(x = PO2, y = CO2bound/Hct_global, group = 1), color = "#D55E00") +
-  geom_line(data = data_for_curve_4, aes(x = PO2, y = HbNH3p, group = 1), color = "#009E73") +
   scale_y_continuous(
     name = expression(Hb-bound~to~O[2] * "," ~ CO[2] * "," ~ H^"+"~(mM~"in"~RBC~space)),
     labels = function(x) x * 1000,  # Scale the y-axis labels by 1000 (convert to mmol/L)
@@ -808,373 +828,25 @@ Figure_4 <- Figure_4 +
   ) +
   theme_minimal()+
   theme(
-    axis.title.y.right = element_text(angle = 90, size = 12),  # Increased axis title font size
-    axis.title.x = element_text(size = 12),  # Increased axis title font size
-    axis.title.y = element_text(size = 12)   # Increased axis title font size
+    axis.title.y.right = element_text(angle = 90, size = 12), 
+    axis.title.x = element_text(size = 12), 
+    axis.title.y = element_text(size = 12)   
   )
 
 # Print the updated plot
 print(Figure_4)
 
-#             CALCULATE THE INFLECTION POINTS OF CO2bound & HbNH3p 
-################################################################################
-# Numerically find the zero of the second derivative to find the inflection point
-data$inflection_point_CO2bound <-
-  sapply(seq_len(nrow(data)), FUN = \(i)(
-    uniroot(
-      deriv_fun,
-      interval = c(15, 30),
-      tol = 1e-20,
-      i = i,
-      returnVar = "CO2bound"
-    )$root
-  ))
-data$inflection_point_HbNH3p <-
-  sapply(seq_len(nrow(data)), FUN = \(i)(
-    uniroot(
-      deriv_fun,
-      interval = c(15, 30),
-      tol = 1e-20,
-      i = i,
-      returnVar = "HbNH3p"
-    )$root
-  ))
 
-# Recalculate SHbO2 for the found inflection points
-inflection_points <- data.frame(PO2 = data$inflection_point_CO2bound[4]
-                                , as.data.frame(
-                                  mapply(
-                                    SHbO2CO2,
-                                    PO2 = data$inflection_point_CO2bound,
-                                    PCO2 = data$PCO2,
-                                    pHrbc = data$pHrbc,
-                                    DPGrbc = data$DPGrbc,
-                                    Temp = Temp_global,
-                                    Hbrbc = Hbrbc_global,
-                                    Hct = Hct_global
-                                  )[, 4]
-                                ))
-
-
-# Add inflection points to the plot 
-Figure_4 <- Figure_4 +
-  geom_point(
-    data = inflection_points,
-    aes(x = PO2, y = CO2bound/Hct_global, color = "Inflection CO2"),
-    size = 3,
-    shape = 19
-  ) +
-  geom_point(
-    data = inflection_points,
-    aes(x = PO2, y = HbNH3p, color = "Inflection HbNH3p"),
-    size = 2,
-    shape = 19
-  ) +
-  geom_vline(xintercept = 23.37, linetype = "longdash", color = "darkgrey", linewidth = 0.4) +
-  scale_color_manual(values = c("Inflection CO2" = "#D55E00", "Inflection HbNH3p" = "#009E73"))+ 
-  theme(legend.position = "none")  # This line removes the legend
-
-# Print the updated plot
-print(Figure_4)
-
-Figure_4 <- Figure_4 +
-  theme(axis.title.y.right = element_text(color = "black"))+
-  theme(
-    axis.title.x = element_text(size = 12),      # Increased axis title font size
-    axis.title.y = element_text(size = 12),      # Increased axis title font size
-    axis.text.x = element_text(size = 12),       # Increase x-axis ticks font size
-    axis.text.y = element_text(size = 12),       # Increase left y-axis ticks font size
-    axis.text.y.right = element_text(size = 12)  # Increase right y-axis ticks font size
-  )
-
-print(Figure_4)
-
-
-#                FIND INTERSECTION OF HbNH3p AND CO2bound CURVES
-################################################################################
-# Assuming 'combined_curves' contains CO2bound and HbNH3p for CurveID 4
-data_for_curve_4 <- combined_curves[combined_curves$CurveID == 4, ]
-
-# Interpolate the curves
-interp_CO2bound <- approxfun(data_for_curve_4$PO2, data_for_curve_4$CO2bound / Hct_global)
-interp_HbNH3p <- approxfun(data_for_curve_4$PO2, data_for_curve_4$HbNH3p)
-
-# Define a function that calculates the difference between the two interpolated functions
-curve_diff <- function(x) {interp_CO2bound(x) - interp_HbNH3p(x)}
-
-# Visualize the curves to identify a good interval
-plot(data_for_curve_4$PO2, data_for_curve_4$CO2bound / Hct_global, type = "l", col = "red",
-     ylim = range(c(data_for_curve_4$CO2bound / Hct_global, data_for_curve_4$HbNH3p)), ylab = "Values", xlab = "PO2")
-lines(data_for_curve_4$PO2, data_for_curve_4$HbNH3p, col = "blue")
-legend("topright", legend = c("CO2bound", "HbNH3p"), col = c("red", "blue"), lty = 1)
-
-intersection <- uniroot(curve_diff, lower = 15, upper = 30)  # Adjusted interval based on the visualization
-
-print(intersection$root) # Print the PO2 where the intersection occurs
-
-
-#                             Figure 5 (CREATE 12 PANEL PLOT)
-################################################################################
-# Add an index to results_df as CurveID
-results_df$CurveID <- as.factor(seq_len(nrow(results_df)))
-
-# Define colors for the binding types
-normal_colors <- c("O2bound" = "#1874CD", "CO2bound" = "#D55E00", "HbNH3p" = "#009E73")
-
-# Prepare the results data points for plotting
-results_long <- results_df %>%
-  mutate(PO2 = data$PO2) %>%
-  pivot_longer(cols = c(O2bound, CO2bound, HbNH3p), 
-               names_to = "BindingType", 
-               values_to = "Concentration") %>%
-  select(CurveID, PO2, BindingType, Concentration)
-
-# Convert combined_curves to long format
-combined_long <- combined_curves %>%
-  pivot_longer(cols = c(O2bound, CO2bound, HbNH3p), 
-               names_to = "BindingType", 
-               values_to = "Concentration")
-
-# Prepare the inflection points data
-inflection_points <- data.frame(
-  CurveID = as.factor(seq_len(nrow(data))),
-  PO2 = data$inflection_point_SHbO2
-)
-
-# Create a list to store individual plots
-plot_list <- list()
-num_panels <- length(unique(combined_long$CurveID)) # Total number of panels
-n_cols <- 4 # Number of columns in the facet grid
-n_rows <- ceiling(num_panels / n_cols) # Number of rows calculated based on total panels and columns
-
-# Loop through each CurveID (panel)
-for (i in 1:num_panels) {
-  current_id <- i
-  col_position <- ((i - 1) %% n_cols) + 1  # Column position (1 to n_cols)
-  row_position <- ceiling(i / n_cols)      # Row position (1 to n_rows)
-  
-  # Separate the data into previous curves and current curves
-  previous_curves <- combined_long %>%
-    filter(as.numeric(CurveID) < current_id)
-  
-  current_curves <- combined_long %>%
-    filter(as.numeric(CurveID) == current_id)
-  
-  # Separate the data points
-  current_points <- results_long %>%
-    filter(as.numeric(CurveID) == current_id)
-  
-  # Extract previous data points
-  previous_points <- results_long %>%
-    filter(as.numeric(CurveID) < current_id)
-  
-  # Create the plot
-  p <- ggplot() +
-    # Plot previous curves in grey
-    geom_line(data = previous_curves, aes(
-      x = PO2,
-      y = ifelse(
-        BindingType == "HbNH3p",
-        Concentration,
-        Concentration / Hct_global
-      ),
-      group = interaction(CurveID, BindingType)
-    ), linewidth = 0.1, color = "grey", alpha = 0.4) +
-    
-    # Plot previous data points in grey
-    geom_point(data = previous_points, aes(
-      x = PO2,
-      y = ifelse(
-        BindingType == "HbNH3p",
-        Concentration,
-        Concentration / Hct_global
-      ),
-      color = BindingType
-    ), size = 1.0) +
-    
-    # Plot current curves in color with solid lines
-    geom_line(data = current_curves, aes(
-      x = PO2,
-      y = ifelse(
-        BindingType == "HbNH3p",
-        Concentration,
-        Concentration / Hct_global
-      ),
-      color = BindingType
-    ), linewidth = 0.6) +
-    
-    # Plot current data points in color
-    geom_point(data = current_points, aes(
-      x = PO2,
-      y = ifelse(
-        BindingType == "HbNH3p",
-        Concentration,
-        Concentration / Hct_global
-      ),
-      color = BindingType
-    ), size = 1.5) +
-    
-    # Add vertical line for inflection point (optional)
-    geom_vline(data = inflection_points %>% filter(as.numeric(CurveID) == current_id),
-               aes(xintercept = PO2),
-               linetype = "dashed",
-               color = "#999999",
-               size = 0.3) +
-    
-    # Set x and y-axis limits
-    coord_cartesian(xlim = c(0, 40), ylim = c(0, 0.011)) +
-    
-    # Set colors and labels
-    scale_color_manual(values = normal_colors) +
-    
-    # Adjust y-axis scaling to display mmol/L without modifying the data
-    scale_y_continuous(
-      labels = scales::label_number(scale = 1000),
-      name = if (col_position == 1) expression(Hb - O[2] * "," ~ CO[2] * "," ~ H^{"+ "} ~ plain("(mM in RBC space)")) else NULL
-    ) +
-    
-    labs(
-      title = paste("Sample", current_id),
-      x = if (row_position == n_rows) expression(PO[2]~"(mmHg)") else NULL
-    ) +
-    theme_minimal(base_size = 9) +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(hjust = 0.5, size = 10),
-      axis.title.x = if (row_position == n_rows) element_text(size = 9) else element_blank(),
-      axis.title.y = if (col_position == 1) element_text(size = 9) else element_blank(),
-      axis.text.x = if (row_position == n_rows) element_text() else element_blank(),
-      axis.text.y = if (col_position == 1) element_text() else element_blank(),
-      axis.ticks.x = if (row_position == n_rows) element_line() else element_blank(),
-      axis.ticks.y = if (col_position == 1) element_line() else element_blank(),
-      panel.grid.minor = element_blank()
-    )
-  
-  # Add annotations to specific samples
-  # Annotation for Sample 4
-  if (current_id == 4) {
-    p <- p +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.010,
-        label = "Passing",
-        color = "black",
-        size = 3,
-        hjust = 0
-      ) +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.009,
-        label = "inflections &",
-        color = "black",
-        size = 3,
-        hjust = 0
-      ) +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.008,
-        label = "Intersection",
-        color = "black",
-        size = 3,
-        hjust = 0
-      )
-  }
-  
-  # Annotation for Sample 6
-  if (current_id == 6) {
-    p <- p +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.010,
-        label = "1st appreciable",
-        color = "black",
-        size = 3,
-        hjust = 0
-      ) +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.009,
-        label = "right shift",
-        color = "black",
-        size = 3,
-        hjust = 0
-      )
-  }
-  
-  # Annotation for Sample 7
-  if (current_id == 7) {
-    p <- p +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.010,
-        label = "GET mid 7 to 8",
-        color = "black",
-        size = 3,
-        hjust = 0
-      )
-  }
-  
-  # Annotation for Sample 8
-  if (current_id == 8) {
-    p <- p +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.010,
-        label = "Curves start",
-        color = "black",
-        size = 3,
-        hjust = 0
-      ) +
-      annotate(
-        "text",
-        x = 0,
-        y = 0.009,
-        label = "drifting apart",
-        color = "black",
-        size = 3,
-        hjust = 0
-      )
-  }
-  
-  
-  # Add the plot to the list
-  plot_list[[i]] <- p
-}
-
-# Combine all plots into one figure
-Figure_5 <- wrap_plots(plot_list, ncol = n_cols)
-
-# Remove the overall title by omitting the 'title' argument
-Figure_5 <- Figure_5 +
-  plot_annotation(
-    theme = theme(
-      plot.title = element_blank(),  # Ensure no title is displayed
-      plot.caption = element_text(size = 10, hjust = 0.5)
-    )
-  ) &
-  theme(
-    plot.margin = unit(c(5, 5, 5, 5), "pt")  # Adjust margins if necessary
-  )
-
-# Display the multi-panel plot
-print(Figure_5)
-
-# ggsave("Figure_5.pdf", Figure_5, width = 18, height = 18, units = "cm", dpi = 300, device = "pdf")
-# ggsave("Figure_5.jpeg", Figure_5, width = 18, height = 18, units = "cm", dpi = 300, device = "pdf")
-ggsave("Figure_5.tiff", Figure_5, width = 17.4, height = 17.4, units = "cm", dpi = 600, compression = "lzw")
-
-
+#################################################################################
 #        FITTING STRINGERS DATA TO RUN FITTED VALUES THROUGH DASH's MODEL
 #################################################################################
+
+#################################
+# FIGURE 2A - PO2 vs %VO2MAX
+################################
+
 # Fitting a 3rd order polynomial model for PO2
-PO2_poly <- lm(PO2 ~ poly(pcVO2max, 3), data = data)
+PO2_poly <- lm(PO2 ~ poly(pcVO2max, 3, raw = TRUE), data = data)
 PO2_poly_pi <- predict(PO2_poly, interval = "prediction")
 data_poly_pi_PO2 <- cbind(data, PO2_poly_pi)
 
@@ -1187,14 +859,25 @@ Figure_2A <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 18, yend = 21,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 17.3, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 17.3, label = "GET", size = 2.7, hjust = 0.5) +  
+  # First: plot just the equation (3rd order, raw = TRUE)
   stat_regline_equation(
-    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
-    formula = y ~ poly(x, 3), 
+    aes(label = after_stat(eq.label)),
+    formula = y ~ poly(x, 3, raw = TRUE),
     size = 3,
-    label.x = 25,  # Adjust the x-position of the equation
-    label.y = 29.8  # Adjust the y-position of the equation
+    label.x = 18,
+    label.y = 31
   ) +
+  # Second: plot just the R-squared
+  stat_regline_equation(
+    aes(label = after_stat(rr.label)),
+    formula = y ~ poly(x, 3, raw = TRUE),
+    size = 3,
+    label.x = 45,
+    label.y = 29.5  # Slightly lower to appear beneath the equation
+  )+
+  scale_x_continuous(limits = c(10, 100), breaks = seq(0, 100, by = 20)) +
+  scale_y_continuous(limits = c(15, 31), breaks = seq(15, 31, by = 5)) +
   xlab(expression("%" * dot(V) * O[2] ~ max)) +  
   ylab(expression(PO[2]~"(mmHg)")) + 
   theme_minimal() +
@@ -1206,6 +889,11 @@ print(Figure_2A)
 fitted_values_PO2 <- data.frame(pcVO2max = seq(10, 100, by = 0.01))
 fitted_values_PO2$PO2_fitted <- predict(PO2_poly, fitted_values_PO2)
 
+
+
+#################################
+# FIGURE 2B - PCO2 vs %VO2MAX
+################################
 
 # Fitting a linear model for PCO2 as function of %VO2max
 PCO2_poly <- lm(PCO2 ~ pcVO2max, data = data)
@@ -1221,14 +909,24 @@ Figure_2B <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 55, yend = 65,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 53, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 53, label = "GET", size = 2.7, hjust = 0.5) +  
+  # First: plot just the equation (linear)
   stat_regline_equation(
-    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
-    formula = y ~ x, 
+    aes(label = after_stat(eq.label)),
+    formula = y ~ x,
     size = 3,
-    label.x = 30,  # Adjust the x-position of the equation
-    label.y = 83  # Adjust the y-position of the equation
+    label.x = 40,
+    label.y = 83
   ) +
+  # Second: plot just the R-squared
+  stat_regline_equation(
+    aes(label = after_stat(rr.label)),
+    formula = y ~ x,
+    size = 3,
+    label.x = 45,
+    label.y = 80  # Slightly lower to appear below the equation
+  )+
+  scale_x_continuous(limits = c(10, 100), breaks = seq(0, 100, by = 20)) +
   xlab(expression("%" * dot(V) * O[2] ~ max)) +  
   ylab(expression(PCO[2]~"(mmHg)")) + 
   theme_minimal() +
@@ -1241,8 +939,13 @@ fitted_values_PCO2 <- data.frame(pcVO2max = seq(10, 100, by = 0.01))
 fitted_values_PCO2$PCO2_fitted <- predict(PCO2_poly, fitted_values_PCO2)
 
 
+
+#################################
+# FIGURE 2C - pHrbc vs %VO2MAX
+################################
+
 # Fitting a 2nd order polynomial model for pH as function of %VO2max
-pHrbc_poly <- lm(pHrbc ~ poly(pcVO2max, 2), data = data)
+pHrbc_poly <- lm(pHrbc ~ poly(pcVO2max, 2, raw = TRUE), data = data)
 pHrbc_poly_pi <- predict(pHrbc_poly, interval = "prediction")
 data_poly_pi <- cbind(data, pHrbc_poly_pi)
 
@@ -1254,14 +957,24 @@ Figure_2C <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) + 
   geom_segment(x = 64, xend = 64, y = 7.0, yend = 7.05,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 6.98, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 6.98, label = "GET", size = 2.7, hjust = 0.5) +  
+  # First: plot just the equation (2nd order)
   stat_regline_equation(
-    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")), 
-    formula = y ~ poly(x, 2), 
+    aes(label = after_stat(eq.label)),
+    formula = y ~ poly(x, 2, raw = TRUE),
     size = 3,
-    label.x = 25,  # Adjust the x-position of the equation
-    label.y = 7.22  # Adjust the y-position of the equation
+    label.x = 28,
+    label.y = 7.215
   ) +
+  # Second: plot just the R-squared
+  stat_regline_equation(
+    aes(label = after_stat(rr.label)),
+    formula = y ~ poly(x, 2, raw = TRUE),
+    size = 3,
+    label.x = 50,
+    label.y = 7.185
+  ) +
+  scale_x_continuous(limits = c(10, 100), breaks = seq(0, 100, by = 20)) +
   xlab(expression("%" * dot(V) * O[2] ~ max)) +  
   ylab(expression(paste("pH"[RBC]))) + 
   theme_minimal() +
@@ -1269,14 +982,17 @@ Figure_2C <-
 
 print(Figure_2C)
 
-
 fitted_values <- data.frame(pcVO2max = seq(10, 100, by = 0.01))
 fitted_values$pHrbc_fitted <- predict(pHrbc_poly, fitted_values)
 
 
 
+#####################################
+# FIGURE 2D - Fract. O2Hb vs %VO2MAX
+#####################################
+
 # Fitting a 3rd order polynomial model for pH as function of %VO2max
-Sat_measured_poly <- lm(Sat_measured ~ poly(pcVO2max, 3), data = data)
+Sat_measured_poly <- lm(Sat_measured ~ poly(pcVO2max, 3, raw = TRUE), data = data)
 Sat_measured_poly_pi <- predict(Sat_measured_poly, interval = "prediction")
 data_poly_pi_Sat_measured <- cbind(data, Sat_measured_poly_pi)
 
@@ -1289,14 +1005,24 @@ Figure_2D <-
   geom_line(aes(y = upr), color = "black", linetype = "dashed", linewidth = 0.4) +
   geom_segment(x = 64, xend = 64, y = 0.4, yend = 0.3,
                arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 64, y = 0.43, label = "GET", size = 2.7, hjust = 0.5) +  # Add annotation text below the arrow
+  annotate("text", x = 64, y = 0.43, label = "GET", size = 2.7, hjust = 0.5) +  
+  # First: plot just the equation
   stat_regline_equation(
-    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
-    formula = y ~ poly(x, 3),
+    aes(label = after_stat(eq.label)),
+    formula = y ~ poly(x, 3, raw = TRUE),
     size = 3,
-    label.x = 10,  # Adjust the x-position of the equation
-    label.y = 0.55  # Adjust the y-position of the equation
+    label.x = 12,
+    label.y = 0.53
   ) +
+  # Second: plot just the R-squared
+  stat_regline_equation(
+    aes(label = after_stat(rr.label)),
+    formula = y ~ poly(x, 3, raw = TRUE),
+    size = 3,
+    label.x = 50,
+    label.y = 0.49
+  )+
+  scale_x_continuous(limits = c(10, 100), breaks = seq(0, 100, by = 20)) +
   xlab(expression("%" * dot(V) * O[2] ~ max)) +  
   ylab(expression("Fract. O"[2]*Hb ~ "Saturation")) +
   theme_minimal() +
@@ -1304,83 +1030,49 @@ Figure_2D <-
 
 print(Figure_2D)
 
-
-# Combine all updated subplots into a grid
-Figure_2 <- plot_grid(Figure_2A, Figure_2B, Figure_2C, Figure_2D, nrow = 2, labels = c('A', 'B', 'C', 'D'))
-
-# ggsave("Figure_2.pdf", Figure_2, width = 18, height = 12, units = "cm")
-# ggsave("Figure_2.jpeg", Figure_2, width = 18, height = 12, units = "cm")
-# ggsave("Figure_2.eps", Figure_2, width = 18, height = 12, units = "cm", device = cairo_ps)
-ggsave("Figure_2.tiff", Figure_2, width = 17.4, height = 11.6, units = "cm", dpi = 600, compression = "lzw")
-
-
-
-
-
-
 # Predict Sat_measured for new %VO2max values (1 to 100%)
 fitted_values_Sat_measured <- data.frame(pcVO2max = seq(10, 100, by = 0.01))
 fitted_values_Sat_measured$Sat_measured_fitted <- predict(Sat_measured_poly, fitted_values_Sat_measured)
 
-# Print the new data frame with fitted values for Sat_measured
-print(fitted_values_Sat_measured)
+# Combine all updated subplots into a grid
+Figure_2 <- plot_grid(Figure_2A, Figure_2B, Figure_2C, Figure_2D, nrow = 2, labels = c('A', 'B', 'C', 'D'))
+ggsave("Figure_2.tiff", Figure_2, width = 17.4, height = 11.6, units = "cm", dpi = 600, compression = "lzw")
 
 
+
+#########################################################################################
+# FIUGURE 3: GATHER FITTED VALUES & CALCULATE O2Hb Saturation TO PUT IN BLAND-ALTMAN PLOT
+#########################################################################################
 # Create a new data frame for the predicted values
 fitted_values <- data.frame(pcVO2max = seq(10, 100, by = 0.01))
 fitted_values$pHrbc_fitted <- predict(pHrbc_poly, fitted_values)
-fitted_values$PO2_fitted <- predict(PO2_poly, fitted_values)
-fitted_values$PCO2_fitted <- predict(PCO2_poly, fitted_values)
+fitted_values$PO2_fitted   <- predict(PO2_poly,   fitted_values)
+fitted_values$PCO2_fitted  <- predict(PCO2_poly,  fitted_values)
 fitted_values$Sat_measured_fitted <- predict(Sat_measured_poly, fitted_values)
 print(fitted_values)
 
+# Interpolate temperature linearly across fitted values
+fitted_values$Temp_dynamic  <- seq(Temp_start, Temp_end, length.out = nrow(fitted_values))
+fitted_values$DPGrbc_fitted <- rep(DPGrbc_global, nrow(fitted_values))
 
-# Modified function that calculates the difference using the fitted values
-find_dpg_fitted <- function(dpg, i, fitted_values) {
-  PO2 <- fitted_values$PO2_fitted[i]
-  PCO2 <- fitted_values$PCO2_fitted[i]
-  pHrbc <- fitted_values$pHrbc_fitted[i]
-  Sat_measured_fraction <- fitted_values$Sat_measured_fitted[i]  # Fitted O2 saturation
-  SHbO2CO2(PO2,
-           PCO2,
-           pHrbc,
-           dpg,
-           Temp = Temp_global,
-           Hbrbc = Hbrbc_global,
-           Hct = Hct_global)$SHbO2kin - Sat_measured_fraction
-}
+print(head(fitted_values))
 
-
-# Use the fitted values to back-calculate 2,3-DPG
-fitted_values$DPGrbc_fitted <- sapply(seq_len(nrow(fitted_values)), FUN = \(i) (
-  uniroot(
-    find_dpg_fitted, 
-    interval = c(1e-10, 0.01), 
-    i = i, 
-    fitted_values = fitted_values, 
-    tol = 1e-20
-  )$root
-))
-
-# Print the new data frame with back-calculated 2,3-DPG values
-print(fitted_values)
-
-
-# Assuming your new dataset is also called `fitted_values`
+# Using dynamic temperatures to calculate SHbO2kin
 fitted_values$SHbO2kin <-
   unlist(
     mapply(
       SHbO2CO2,
-      PO2 = fitted_values$PO2,
-      PCO2 = fitted_values$PCO2,
-      pHrbc = fitted_values$pHrbc,
-      DPGrbc = fitted_values$DPGrbc,
-      Temp = Temp_global,
-      Hbrbc = Hbrbc_global,
-      Hct = Hct_global
+      PO2    = fitted_values$PO2_fitted,
+      PCO2   = fitted_values$PCO2_fitted,
+      pHrbc  = fitted_values$pHrbc_fitted,
+      DPGrbc = fitted_values$DPGrbc_fitted,
+      Temp   = fitted_values$Temp_dynamic,   # Dynamic temperature here
+      Hbrbc  = Hbrbc_global,
+      Hct    = Hct_global
     )["SHbO2kin",]
   )
 
+print(head(fitted_values))
 
 # Select the relevant columns from the `data` dataframe
 data_selected <- data[, c('Sat_measured', 'SHbO2kin', 'DPGrbc', 'pcVO2max')]
@@ -1395,15 +1087,12 @@ combined_data <- rbind(data_selected, fitted_values_selected)
 # Check the new combined data frame
 print(combined_data)
 
-
-
-
 # Calculate means and differences
 combined_data$Mean <- rowMeans(combined_data[,c('Sat_measured', 'SHbO2kin')], na.rm=TRUE)
 combined_data$Difference <- combined_data$Sat_measured - combined_data$SHbO2kin
 
 # Plot Bland-Altman Plot
-Figure_3A <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
+Figure_3 <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
   geom_point(alpha = 0.5, size = 1.5) +
   geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Zero line
   geom_hline(yintercept = mean(combined_data$Difference, na.rm = TRUE), col = "red") +
@@ -1421,57 +1110,14 @@ Figure_3A <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
   theme_minimal() +
   theme(text = element_text(size = 9), axis.text = element_text(size = 8))
 
-print(Figure_3A)
-
-
-
-
-# First, ensure you have the original and fitted data separated
-data_selected <- data[, c('pcVO2max', 'DPGrbc')] # Original data
-fitted_values_selected <- fitted_values[, c('pcVO2max', 'DPGrbc_fitted')] # Fitted data
-
-# Plotting 2,3-DPG vs. %VO2max
-Figure_3B <- ggplot() +
-  # Plot original data as points
-  geom_point(data = data_selected, aes(x = pcVO2max, y = DPGrbc), color = "black", size = 2) +
-  # Plot fitted data as a line
-  geom_line(data = fitted_values_selected, aes(x = pcVO2max, y = DPGrbc_fitted), color = "black", linewidth = 0.5) +
-  labs(x = expression("%" * dot(V) * O[2] ~ max), y = "2,3-DPG (mM)") +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  scale_y_continuous(
-    breaks = seq(0, 0.006, by = 0.001),  # Specify the breaks in original units
-    limits = c(0, 0.006),                # Keep the limits in the original scale
-    labels = scales::label_number(scale = 1000)  # Multiply the axis labels by 1000 to convert to mM
-  ) +  
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
-
-# Print the combined plot
-print(Figure_3B)
-
-
-
-# Combine the updated Figure 6 panels into one figure
-Figure_3 <- plot_grid(
-  Figure_3A,
-  Figure_3B,
-  nrow = 1,
-  labels = c('A', 'B')
-)
-
-# Print the updated Figure 6
 print(Figure_3)
 
-# ggsave("Figure_3.pdf", Figure_3, width = 18, height = 5.5, units = "cm")
-# ggsave("Figure_3.jpeg", Figure_3, width = 18, height = 5.5, units = "cm")
-ggsave("Figure_3.tiff", Figure_3, width = 17.4, height = 5.32, units = "cm", dpi = 600, compression = "lzw")
+ggsave("Figure_3.tiff", Figure_3, width = 17.4/2, height = 5.32, units = "cm", dpi = 600, compression = "lzw")
 
 
-#            CALCULATE DASH's OUTPUT FOR fitted_values POINTS
-################################################################################
-# Now, for the fitted_values points, PO2_fitted, PCO2_fitted, pHrbc_fitted, Temp, Hbrbc, Hct, and 2,3-DPG_fitted 
-# have been made available/assumed so that Dash's model can be applied to them.
-
+############################################################################################
+# CALCULATE DASH's OUTPUTS FOR FITTED VALUES OF FIG. 2, GET INFLECTION POINT, UPDATE FIG. 4
+############################################################################################
 # Adjusted function call within the apply loop to use DPGrbc_fitted values from the fitted_values dataframe
 results_fitvalues <- apply(fitted_values, 1, function(row) {
   SHbO2CO2(
@@ -1479,7 +1125,7 @@ results_fitvalues <- apply(fitted_values, 1, function(row) {
     PCO2 = row['PCO2_fitted'],    # Fitted PCO2 values
     pHrbc = row['pHrbc_fitted'],  # Fitted pHrbc values
     DPGrbc = row['DPGrbc_fitted'],# Back-calculated DPGrbc_fitted values
-    Temp = Temp_global,           # Temperature (standardized to 37°C)
+    Temp = row['Temp_dynamic'],           # Temperature (standardized to 37°C)
     Hbrbc = Hbrbc_global,         # Standard Hbrbc
     Hct = Hct_global              # Standard Hct
   )
@@ -1525,29 +1171,8 @@ if (!is.null(colnames(results_fitvalues_df))) {
 # Check the first few rows of the results to confirm
 head(results_fitvalues_df)
 
-
+# quick visual inspection
 plot(results_fitvalues_df$O2bound/ Hct_global ~ fitted_values$PO2_fitted , xlim = c(0,40))
-
-
-ggplot(data = fitted_values, aes(x = pcVO2max, y = results_fitvalues_df$KHbO2)) +
-  geom_path(aes(group = 1), color = "black", size = 0.5) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  labs(x = expression("%VO"[2] ~ max), y = expression('KHbO'[2] ~ (M ^ -1))) +
-  scale_x_continuous(breaks = seq(0, 100, by = 20)) +
-  geom_segment(x = 32.5, xend = 32.5, y = 12800, yend = 15000,
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 32.5, y = 11000, label = "Sample 4\npassing inflection", size = 2.7, hjust = 0.5)+
-  geom_segment(x = 56, xend = 56, y = 15000, yend = 12800,
-               arrow = arrow(length = unit(0.15, "cm")), color = "black") +
-  annotate("text", x = 56, y = 16500, label = "GET", size = 2.7, hjust = 0.5) +
-  theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 10)) 
 
 
 # Adding the new dataset points to Figure 1 without title, legend, and only showing the black line
@@ -1570,58 +1195,43 @@ Figure_4_updated <- Figure_4 +
 # Print the updated figure without title, points, and legend
 print(Figure_4_updated)
 
-# ggsave("Figure_4_updated.pdf", Figure_4_updated, width = 20, height = 20, units = "cm")
-
-
-plot(results_fitvalues_df$O2bound / Hct_global ~ fitted_values$PO2_fitted, type = "l")
 
 
 predicted_fun <- Vectorize(function(x, var = "O2bound") {
   
   assumed_pcVO2max <- uniroot(
-    \(z)(predict(PO2_poly, newdata = data.frame(pcVO2max = z)) - x)
-    , lower = 0
-    , upper = 100
-    , tol = 1e-20
-  )$root
-  
-  tmp_frame <- data.frame(
-    PO2_fitted = x
-    , PCO2_fitted = predict(PCO2_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max))
-    , pHrbc_fitted = predict(pHrbc_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max))
-    , Sat_measured_fraction = predict(Sat_measured_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max))
-  )
-  
-  find_dpg <- function(dpg, data) {
-    SHbO2CO2(
-      PO2 = x,     
-      PCO2 = data$PCO2_fitted,   
-      pHrbc = data$pHrbc_fitted, 
-      DPGrbc = dpg,
-      Temp = Temp_global,          
-      Hbrbc = Hbrbc_global,        
-      Hct = Hct_global             
-    )$SHbO2kin - data$Sat_measured_fraction
-  }
-  
-  tmp_frame$DPGrbc_fitted <- uniroot(
-    find_dpg, 
-    interval = c(1e-10, 0.01), 
-    data = tmp_frame, 
+    \(z)(predict(PO2_poly, newdata = data.frame(pcVO2max = z)) - x),
+    lower = 0,
+    upper = 100,
     tol = 1e-20
   )$root
+  
+  # Predict dynamic Temp as well
+  Temp_dynamic_predicted <- approx(
+    x = fitted_values$pcVO2max,
+    y = fitted_values$Temp_dynamic,
+    xout = assumed_pcVO2max
+  )$y
+  
+  tmp_frame <- data.frame(
+    PO2_fitted = x,
+    PCO2_fitted = predict(PCO2_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max)),
+    pHrbc_fitted = predict(pHrbc_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max)),
+    Sat_measured_fraction = predict(Sat_measured_poly, newdata = data.frame(pcVO2max = assumed_pcVO2max))
+  )
   
   SHbO2CO2(
     PO2 = x,
     PCO2 = tmp_frame$PCO2_fitted,
     pHrbc = tmp_frame$pHrbc_fitted,
-    DPGrbc = tmp_frame$DPGrbc_fitted,
-    Temp = Temp_global,
+    DPGrbc = DPGrbc_global,
+    Temp = Temp_dynamic_predicted,  
     Hbrbc = Hbrbc_global,
     Hct = Hct_global
   )[[var]]
   
 }, "x")
+
 
 deriv_fun <- function(x,
                       returnVar = "O2bound",
@@ -1642,7 +1252,7 @@ deriv_fun <- function(x,
 
 inflection_point_PO2 <- uniroot(
   deriv_fun,
-  interval = c(19, 28),
+  interval = c(19.5, 23),
   tol = 1e-20,
   returnVar = "O2bound"
 )$root
@@ -1664,23 +1274,26 @@ Figure_4_updated <-
   Figure_4_updated +
   geom_point(aes(x = inflection_point_PO2, y = y_value_at_inflection),
              colour = "red",
-             size = 2) # Adjust size if necessary
+             size = 2) +# Adjust size if necessary
+  annotate("text", 
+           x = 24, 
+           y = 0.0055, 
+           label = paste(round(inflection_point_PO2, 2), "mmHg"), 
+           hjust = 0, 
+           vjust = -1, 
+           size = 4.5, 
+           color = "red")
 
-# Save the updated figure
-# ggsave("Figure_4.tiff", Figure_4_updated, width = 15, height = 17, units = "cm", dpi = 600, compression = "lzw")
-# ggsave("Figure_4.tiff", Figure_4_updated, width = 16, height = 18.13, units = "cm", dpi = 600, compression = "lzw")
-ggsave("Figure_4.tiff", Figure_4_updated, width = 15, height = 17, units = "cm", dpi = 600, compression = "lzw")
 
-
-#                                   FIGURE 6
-#                        CALCULATE HCO3- from PCO2 and pH
+################################################################################
+#                      CALCULATE HCO3- & CREATE FIG. 6
 ################################################################################
 # HCO3m calculation based on Beaver equation derived from Siggard-Andersen Normogram
-# Stringer, W.W., R. Casaburi, and K. Wasserman. Acid base regulation during exercise and recovery in humans. 
-# J. Appl. Physiol. 72: 954-961, 1992. 
+# Stringer, W.W., R. Casaburi, and K. Wasserman. Acid base regulation during exercise and recovery in humans.
+# J. Appl. Physiol. 72: 954-961, 1992.
 HCO3m_SA <- function(pCO2, pH, Hb = 15.4) {
   HCO3m_mmol_per_l <- 10^(pH-7.376*(1-0.00305*Hb)+0.848*(1-0.0162*Hb)*log10(pCO2))
-  return(HCO3m_mmol_per_l)  
+  return(HCO3m_mmol_per_l)
 }
 
 data$pHpl <- data$pHrbc - log10(0.69)
@@ -1692,7 +1305,358 @@ fitted_values$pHpl_fitted <- fitted_values$pHrbc_fitted - log10(0.69)
 # Calculate the HCO3m for the fitted values using the plasma pH
 fitted_values$HCO3m_fitted <- HCO3m_SA(fitted_values$PCO2_fitted, fitted_values$pHpl_fitted)
 
-Figure_6A <-
+
+# before plotting, add the fitted HbNH2 into fitted_values df
+fitted_values$HbNH2 <- results_fitvalues_df$HbNH2
+Figure_6A_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$HbNH2),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HbNH2),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  # convert M to mmol/L on y-axis
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression(HbNH[2]~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6A_pcVO2)
+
+
+# before plotting, add the fitted HbNH3p into fitted_values df
+fitted_values$HbNH3p <- results_fitvalues_df$HbNH3p
+Figure_6B_pcVO2 <- ggplot() +
+  # measured data points at their %VO2max
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$HbNH3p),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  # fitted curve traced over %VO2max
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HbNH3p),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  # tick breaks every 20 on x
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  # convert M → mmol/L on y-axis
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression(HbNH[3]^"+"~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6B_pcVO2)
+
+
+# before plotting, add the fitted O2HbNH2 into fitted_values df
+fitted_values$O2HbNH2 <- results_fitvalues_df$O2HbNH2
+Figure_6C_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$O2HbNH2),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = O2HbNH2),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  # convert M to mmol/L on y-axis
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression("O"[2] * "HbNH"[2]~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6C_pcVO2)
+
+
+# add the fitted O2HbNH3p into fitted_values
+fitted_values$O2HbNH3p <- results_fitvalues_df$O2HbNH3p
+Figure_6D_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$O2HbNH3p),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = O2HbNH3p),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  # convert M to mmol/L on y‐axis
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression("O"[2] * "HbNH"[3]^"+"~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6D_pcVO2)
+
+
+# before plotting, add the fitted HbNHCOOm into fitted_values df
+fitted_values$HbNHCOOm <- results_fitvalues_df$HbNHCOOm
+Figure_6E_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$HbNHCOOm),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HbNHCOOm),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression("HbNHCOO"^"-"~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6E_pcVO2)
+
+
+# before plotting, add the fitted O2HbNHCOOm into fitted_values df
+fitted_values$O2HbNHCOOm <- results_fitvalues_df$O2HbNHCOOm
+Figure_6F_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$O2HbNHCOOm),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = O2HbNHCOOm),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression("O"[2] * "HbNHCOO"^"-"~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6F_pcVO2)
+
+
+# add the two new fitted series
+fitted_values$HbNHCOOH <- results_fitvalues_df$HbNHCOOH
+Figure_6G_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$HbNHCOOH),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HbNHCOOH),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression(HbNHCOOH~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+
+print(Figure_6G_pcVO2)
+
+
+fitted_values$O2HbNHCOOH  <- results_fitvalues_df$O2HbNHCOOH
+Figure_6H_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = results_df$O2HbNHCOOH),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = O2HbNHCOOH),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  scale_y_continuous(
+    labels = function(y) y * 1000,
+    name   = expression(O[2] * "HbNHCOOH"~"(mM)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6H_pcVO2)
+
+
+# add the fitted HbNHCOOm into fitted_values
+# fitted_values$HbNHCOOm <- results_fitvalues_df$HbNHCOOm
+Figure_6I_pcVO2 <- ggplot() +
+  geom_point(
+    data = data,
+    aes(x = pcVO2max, y = HCO3m),
+    shape = 21,
+    color = data_points_edge,
+    fill  = "black",
+    size  = 1.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HbNHCOOm),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = pcVO2max, y = HCO3m_fitted),
+    color     = "black",
+    linewidth = 0.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 20),
+    name   = expression("%" * dot(V) * O[2] ~ max)
+  ) +
+  scale_y_continuous(
+    limits = c(18, 26),
+    breaks = seq(18, 26, by = 2),
+    name   = expression("HCO"[3]^"-"~"(mmol/L blood)")
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text  = element_text(size = 8),
+    axis.title = element_text(size = 10)
+  )
+print(Figure_6I_pcVO2)
+
+
+# combine the nine panels into a 3×3 layout
+Figure_6_pcvo2max <- plot_grid(
+  Figure_6A_pcVO2,
+  Figure_6B_pcVO2,
+  Figure_6C_pcVO2,
+  Figure_6D_pcVO2,
+  Figure_6E_pcVO2,
+  Figure_6F_pcVO2,
+  Figure_6G_pcVO2,
+  Figure_6H_pcVO2,
+  Figure_6I_pcVO2,
+  nrow   = 3,
+  labels = c("A","B","C","D","E","F","G","H","I")
+)
+
+ggsave(
+  filename   = "Figure_6_pcVO2max.tiff",
+  plot       = Figure_6_pcvo2max,
+  width      = 17.4,
+  height     = 16.0,
+  units      = "cm",
+  dpi        = 600,
+  compression = "lzw"
+)
+
+
+
+################################################################################
+#                      ALTERNATIVE FIG. 6 WITH PO2
+################################################################################
+Figure_6A_PO2 <-
   ggplot(data = data, aes(x = PO2, y = results_df$HbNH2)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1702,20 +1666,96 @@ Figure_6A <-
     fill = "black"
   ) +
   geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$HbNH2), 
-    color = "black", 
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNH2),
+    color = "black",
     linewidth = 0.5
   ) +
   labs(
-    x = expression("PO"[2] ~ "(mmHg)"), 
+    x = expression("PO"[2] ~ "(mmHg)"),
     y =  expression(HbNH[2]~"(mM)"))+
   scale_y_continuous(
     labels = function(y) y * 1000) +
   theme_minimal() +
   theme(text = element_text(size = 9), axis.text = element_text(size = 8))
 
-Figure_6B <- 
+
+Figure_6B_PO2 <-
+  ggplot(data = data, aes(x = PO2, y = results_df$HbNH3p)) +
+  geom_point(
+    aes(fill = "Original Data"),
+    shape = 21,
+    color = data_points_edge,
+    size = 1.5,
+    fill = "black"
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNH3p),
+    color = "black",
+    linewidth = 0.5
+  ) +
+  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("HbNH"[3]^"+"~"(mM)")) +
+  scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
+  scale_y_continuous(labels = function(y) y * 1000) +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
+  )
+
+
+Figure_6C_PO2 <-
+  ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH2)) +
+  geom_point(
+    aes(fill = "Original Data"),
+    shape = 21,
+    color = data_points_edge,
+    size = 1.5,
+    fill = "black"
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$O2HbNH2), color = "black", linewidth = 0.5) +
+  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("O"[2] * "HbNH" [2]~"(mM)")) +
+  scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
+  scale_y_continuous(labels = function(y) y * 1000) +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
+  )
+
+
+Figure_6D_PO2 <-
+  ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH3p)) +
+  geom_point(
+    aes(fill = "Original Data"),
+    shape = 21,
+    color = data_points_edge,
+    size = 1.5,
+    fill = "black"
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$O2HbNH3p),
+    color = "black",
+    linewidth = 0.5
+  ) +
+  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("O"[2] * "HbNH"[3]^"+"~"(mM)")) +
+  scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
+  scale_y_continuous(labels = function(y) y * 1000) +
+  theme_minimal() +
+  theme(
+    text = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
+  )
+
+
+Figure_6E_PO2 <-
   ggplot(data = data, aes(x = PO2, y = results_df$HbNHCOOm)) +
   geom_point(
     aes(fill = "Original Data"),
@@ -1725,25 +1765,25 @@ Figure_6B <-
     fill = "black"
   ) +
   geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$HbNHCOOm), 
-    color = "black", 
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNHCOOm),
+    color = "black",
     linewidth = 0.5
   ) +
   labs(
-    x = expression("PO"[2] ~ "(mmHg)"), 
+    x = expression("PO"[2] ~ "(mmHg)"),
     y = expression("HbNHCOO"^"-"~ "(mM)")) +
   scale_y_continuous(labels = function(y) y * 1000) +
   scale_x_continuous(breaks = seq(15, 30, by = 2)) +
   theme_minimal() +
   theme(
-    text = element_text(size = 9), 
+    text = element_text(size = 9),
     axis.text = element_text(size = 8),
     plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
   )
 
 
-Figure_6C <-
+Figure_6F_PO2 <-
   ggplot(data = data, aes(x = PO2, y = results_df$O2HbNHCOOm)) +
   geom_point(
     aes(fill = "Original Data"), shape = 21,
@@ -1762,14 +1802,14 @@ Figure_6C <-
   scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
   theme_minimal() +
   theme(
-    text = element_text(size = 9), 
+    text = element_text(size = 9),
     axis.text = element_text(size = 8),
     plot.title = element_text(size = 8, hjust = 0.0)  # Adjust title size and alignment
-  )  
+  )
 
 
-Figure_6D<-
-  ggplot(data = data, aes(x = PO2, y = results_df$HbNH3p)) +
+Figure_6G_PO2 <-
+  ggplot(data = data, aes(x = PO2, y = results_df$HbNHCOOH)) +
   geom_point(
     aes(fill = "Original Data"),
     shape = 21,
@@ -1778,24 +1818,24 @@ Figure_6D<-
     fill = "black"
   ) +
   geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$HbNH3p), 
-    color = "black", 
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNHCOOH),
+    color = "black",
     linewidth = 0.5
   ) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("HbNH"[3]^"+"~"(mM)")) +
+  labs(x = expression("PO"[2] ~ "(mmHg)"), y = "HbNHCOOH (mM)") +
   scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
   scale_y_continuous(labels = function(y) y * 1000) +
   theme_minimal() +
   theme(
-    text = element_text(size = 9), 
+    text = element_text(size = 9),
     axis.text = element_text(size = 8),
     plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
-  )      
+  )
 
 
-Figure_6E <-
-  ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH2)) +
+Figure_6H_PO2 <-
+  ggplot(data = data, aes(x = PO2, y = results_df$O2HbNHCOOH)) +
   geom_point(
     aes(fill = "Original Data"),
     shape = 21,
@@ -1804,68 +1844,406 @@ Figure_6E <-
     fill = "black"
   ) +
   geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$O2HbNH2), color = "black", linewidth = 0.5) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("O"[2] * "HbNH" [2]~"(mM)")) +
-  scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
-  scale_y_continuous(labels = function(y) y * 1000) +
-  theme_minimal() +
-  theme(
-    text = element_text(size = 9), 
-    axis.text = element_text(size = 8),
-    plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
-  )    
-
-
-Figure_6F <-
-  ggplot(data = data, aes(x = PO2, y = results_df$O2HbNH3p)) +
-  geom_point(
-    aes(fill = "Original Data"),
-    shape = 21,
-    color = data_points_edge,
-    size = 1.5,
-    fill = "black"
-  ) +
-  geom_line(
-    data = fitted_values, 
-    aes(x = PO2_fitted, y = results_fitvalues_df$O2HbNH3p), 
-    color = "black", 
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$O2HbNHCOOH),
+    color = "black",
     linewidth = 0.5
   ) +
-  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("O"[2] * "HbNH"[3]^"+"~"(mM)")) +
+  labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("O"[2] * "HbNHCOOH")) +
   scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
   scale_y_continuous(labels = function(y) y * 1000) +
   theme_minimal() +
   theme(
-    text = element_text(size = 9), 
+    text = element_text(size = 9),
     axis.text = element_text(size = 8),
     plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
-  )     
+  )
 
 
-Figure_6G <-
+Figure_6I_PO2 <-
   ggplot(data = data, aes(x = PO2, y = HCO3m)) +
   geom_point(
     aes(fill = "Original Data"), shape = 21, color = data_points_edge, size = 1.5, fill = "black") +
-  geom_line(data = fitted_values, aes(x = PO2_fitted, y = results_fitvalues_df$HbNHCOOm), color = "black", linewidth = 0.5) +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNHCOOm),
+    color = "black",
+    linewidth = 0.5
+  ) +
   geom_line(data = fitted_values, aes(x = PO2_fitted, y = HCO3m_fitted), color = "black", linewidth = 0.5) +
   labs(x = expression("PO"[2] ~ "(mmHg)"), y = expression("HCO"[3]^"-"~"(mmol/L blood)")) +
   scale_x_continuous(breaks = seq(15, 30, by = 2)) +  # Set x-axis breaks from 15 to 30 in increments of 2
   ylim(18, 26) +  # Set y-axis limits from 18 to 26
   theme_minimal() +
   theme(
-    text = element_text(size = 9), 
+    text = element_text(size = 9),
     axis.text = element_text(size = 8),
     plot.title = element_text(size = 9, hjust = 0.5)  # Adjust title size and alignment
-  )     
-# Print the updated Figure 7A
-print(Figure_6G)
+  )
 
 
-Figure_6 <- plot_grid(Figure_6A, Figure_6B, Figure_6C, Figure_6D, Figure_6E, Figure_6F, Figure_6G,
-                      nrow = 3, labels = c('A', 'B', 'C', 'D', 'E', 'F', 'G')
+Figure_6_PO2 <- plot_grid(
+  Figure_6A_PO2,
+  Figure_6B_PO2,
+  Figure_6C_PO2,
+  Figure_6D_PO2,
+  Figure_6E_PO2,
+  Figure_6F_PO2,
+  Figure_6G_PO2,
+  Figure_6H_PO2,
+  Figure_6I_PO2,
+  nrow = 3,
+  labels = c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I')
 )
 
-# ggsave("Figure_6.pdf", Figure_6, width = 18, height = 16, units = "cm")
-ggsave("Figure_6.tiff", Figure_6, width = 17.4, height = 15.47, units = "cm", dpi = 600, compression = "lzw")
+ggsave(
+  "Figure_6_PO2.tiff",
+  Figure_6_PO2,
+  width = 17.4,
+  height = 15.47,
+  units = "cm",
+  dpi = 600,
+  compression = "lzw"
+)
+
+
+################################################################################
+#                          ADDRESSING REVIEWER COMMENTS 
+################################################################################
+# Update Figure 4 with CO2-bound and H+ bound (HbNH3p) curves
+Figure_4_updated_R <- Figure_4_updated +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$CO2bound / Hct_global),
+    color = "#D55E00",  # CO2-bound hemoglobin (CDC)
+    linewidth = 0.8
+  ) +
+  geom_line(
+    data = fitted_values,
+    aes(x = PO2_fitted, y = results_fitvalues_df$HbNH3p),
+    color = "#009E73",  # H+-bound hemoglobin (HDC)
+    linewidth = 0.8
+  )
+
+# Interpolation functions for intersection calculation
+interp_CO2bound <- approxfun(fitted_values$PO2_fitted, results_fitvalues_df$CO2bound / Hct_global, rule = 2)
+interp_HbNH3p   <- approxfun(fitted_values$PO2_fitted, results_fitvalues_df$HbNH3p, rule = 2)
+
+# Define difference function for finding intersection
+curve_diff <- function(x) interp_CO2bound(x) - interp_HbNH3p(x)
+
+# Find intersection point between CO2-bound and HbNH3p curves
+intersection_PO2 <- uniroot(curve_diff, interval = c(10, 35), tol = 1e-20)$root
+intersection_value <- interp_CO2bound(intersection_PO2)
+
+cat("Intersection occurs at PO2 =", round(intersection_PO2, 2), "mmHg\n")
+
+# Add intersection point to the plot
+Figure_4_updated_R <- Figure_4_updated_R +
+  geom_point(aes(x = intersection_PO2, y = intersection_value), color = "black", size = 2) +
+  geom_vline(xintercept = intersection_PO2, linetype = "dashed", color = "grey", linewidth = 0.6) +
+  annotate("text", x = intersection_PO2 + 0.5, y = 0.002,
+           label = paste(round(intersection_PO2, 2), "mmHg"),
+           hjust = 0, vjust = -1, size = 4.5, color = "black")
+
+
+# Function to calculate second derivative for inflection points
+second_derivative <- function(x, var) {
+  pracma::fderiv(
+    \(x) predicted_fun(x, var = var),
+    x = x, n = 2, h = 0, method = "central"
+  )
+}
+
+# Find inflection points for CO2-bound and HbNH3p curves
+inflection_point_CO2bound <- uniroot(second_derivative, interval = c(20, 25), var = "CO2bound")$root
+inflection_point_HbNH3p   <- uniroot(second_derivative, interval = c(20, 25), var = "HbNH3p")$root
+
+cat("Inflection Point (CO2-bound) at PO2 =", round(inflection_point_CO2bound, 2), "mmHg\n")
+cat("Inflection Point (HbNH3p) at PO2 =", round(inflection_point_HbNH3p, 2), "mmHg\n")
+
+# Add inflection points to the plot
+Figure_4_updated_final <- Figure_4_updated_R +
+  geom_point(aes(x = inflection_point_CO2bound, y = interp_CO2bound(inflection_point_CO2bound)),
+             colour = "red", size = 2) +
+  #  geom_vline(xintercept = inflection_point_CO2bound, linetype = "dashed", color = "#D55E00", linewidth = 0.6) +
+  annotate("text", x = inflection_point_HbNH3p - 0.3, y = 0.0012,
+           label = paste(round(inflection_point_CO2bound, 2), "mmHg"),
+           hjust = 0, vjust = -1, size = 4.5, color = "red") +
+  
+  geom_point(aes(x = inflection_point_HbNH3p, y = interp_HbNH3p(inflection_point_HbNH3p)),
+             colour = "red", size = 2) +
+  #  geom_vline(xintercept = inflection_point_HbNH3p, linetype = "dashed", color = "#009E73", linewidth = 0.6) +
+  annotate("text", 
+           x = inflection_point_HbNH3p - 0.3, 
+           y = interp_HbNH3p(inflection_point_HbNH3p),
+           label = paste(round(inflection_point_HbNH3p, 2), "mmHg"),
+           hjust = 0, vjust = -1, size = 4.5, color = "red")
+
+
+# Save the final updated figure
+output_path <- "Figure_4.tiff"
+ggsave(
+  output_path,
+  Figure_4_updated_final,
+  width = 15,
+  height = 17,
+  units = "cm",
+  dpi = 600,
+  compression = "lzw"
+)
+
+# Display the final figure
+print(Figure_4_updated_final)
+
+
+###############################################################################
+#                                 Figure 5
+###############################################################################
+# 1) Create a single data frame that merges fitted_values with results_fitvalues_df
+fitted_merged <- cbind(
+  fitted_values,
+  O2bound  = results_fitvalues_df$O2bound,
+  CO2bound = results_fitvalues_df$CO2bound
+  # HbNH3p   = results_fitvalues_df$HbNH3p # dropped because already created in Fig 6
+)
+# (If they share a common ID column, you could also do a left_join. 
+#  But for identical row ordering, cbind(...) works fine.)
+
+# 2) Add an index to your lab-based RBC data
+results_df$CurveID <- as.factor(seq_len(nrow(results_df)))
+
+# 3) Colors for RBC-bound species
+normal_colors <- c(
+  "O2bound"  = "#1874CD",
+  "CO2bound" = "#D55E00",
+  "HbNH3p"   = "#009E73"
+)
+
+# 4) Convert lab RBC results to long format for plotting
+results_long <- results_df %>%
+  mutate(PO2 = data$PO2) %>%
+  pivot_longer(
+    cols      = c(O2bound, CO2bound, HbNH3p),
+    names_to  = "BindingType",
+    values_to = "Concentration"
+  ) %>%
+  select(CurveID, PO2, BindingType, Concentration)
+
+# 5) Convert RBC curves to long format, likewise
+combined_long <- combined_curves %>%
+  pivot_longer(
+    cols      = c(O2bound, CO2bound, HbNH3p),
+    names_to  = "BindingType",
+    values_to = "Concentration"
+  )
+
+# 6) (Optional) sample-specific RBC O₂ inflection lines
+inflection_points <- data.frame(
+  CurveID = as.factor(seq_len(nrow(data))),
+  PO2     = data$inflection_point_SHbO2
+)
+
+# 7) Create separate panels for each sample (12 panels)
+plot_list  <- list()
+num_panels <- length(unique(combined_long$CurveID))  # typically 12
+n_cols     <- 4
+n_rows     <- ceiling(num_panels / n_cols)
+
+# 8) Loop over each sample to build subplots
+for (i in seq_len(num_panels)) {
+  
+  current_id   <- i
+  col_position <- ((i - 1) %% n_cols) + 1
+  row_position <- ceiling(i / n_cols)
+  
+  # Separate previous and current lab RBC curves and points
+  previous_curves <- combined_long %>% filter(as.numeric(CurveID) < current_id)
+  current_curves  <- combined_long %>% filter(as.numeric(CurveID) == current_id)
+  
+  previous_points <- results_long %>% filter(as.numeric(CurveID) < current_id)
+  current_points  <- results_long %>% filter(as.numeric(CurveID) == current_id)
+  
+  # Subset the fitted data up to the current sample's %VO2max
+  pcVO2max_i     <- data$pcVO2max[i]
+  fitted_partial <- fitted_merged %>% filter(pcVO2max <= pcVO2max_i)
+  
+  # Build the subplot
+  p <- ggplot() +
+    # (A) Plot lab RBC curves: previous in grey, current in color
+    geom_line(
+      data = previous_curves,
+      aes(x = PO2,
+          y = ifelse(BindingType == "HbNH3p", Concentration, Concentration / Hct_global),
+          group = interaction(CurveID, BindingType)
+      ),
+      linewidth = 0.15,
+      color     = "grey45",
+      alpha     = 0.4
+    ) +
+    # For previous lab RBC points:
+    geom_point(
+      data = previous_points,
+      aes(x = PO2,
+          y = ifelse(BindingType == "HbNH3p", Concentration, Concentration / Hct_global),
+          color = BindingType
+      ),
+      shape = 16,    
+      size  = 0.6,   
+      alpha = 0.3    
+    ) +
+    geom_line(
+      data = current_curves,
+      aes(x = PO2,
+          y = ifelse(BindingType == "HbNH3p", Concentration, Concentration / Hct_global),
+          color = BindingType
+      ),
+      linewidth = 0.6,
+      alpha = 0.3
+    ) +
+    # For current lab RBC points:
+    geom_point(
+      data = current_points,
+      aes(x = PO2,
+          y = ifelse(BindingType == "HbNH3p", Concentration, Concentration / Hct_global),
+          color = BindingType
+      ),
+      shape = 16,    
+      size  = 0.6,   
+      alpha = 0.8    
+    ) +
+    
+    # (B) Plot the fitted curves (up to current sample’s %VO2max)
+    geom_line(
+      data = fitted_partial,
+      aes(x = PO2_fitted, y = O2bound / Hct_global),
+      color     = "#1874CD",
+      linewidth = 0.7,
+      alpha     = 0.8
+    ) +
+    geom_line(
+      data = fitted_partial,
+      aes(x = PO2_fitted, y = CO2bound / Hct_global),
+      color     = "#D55E00",
+      linewidth = 0.7,
+      alpha     = 0.8
+    ) +
+    geom_line(
+      data = fitted_partial,
+      aes(x = PO2_fitted, y = HbNH3p),
+      color     = "#009E73",
+      linewidth = 0.7,
+      alpha     = 0.8
+    )
+  
+  # (C) Conditionally add markers (dots) if the fitted curve covers the threshold
+  # Check the range of PO2_fitted in this panel:
+  min_x_current <- min(fitted_partial$PO2_fitted, na.rm = TRUE)
+  max_x_current <- max(fitted_partial$PO2_fitted, na.rm = TRUE)
+  
+  # O2bound inflection marker: add only if the inflection point lies within the current fitted PO2 range
+  if(min_x_current <= inflection_point_PO2 && max_x_current >= inflection_point_PO2) {
+    p <- p + geom_point(aes(x = inflection_point_PO2, y = y_value_at_inflection),
+                        color = "red", size = 0.6)
+  }
+  
+  if(min_x_current <= intersection_PO2 && max_x_current >= intersection_PO2) {
+    p <- p + geom_point(aes(x = intersection_PO2, y = intersection_value),
+                        color = "black", size = 0.6)
+  }
+  
+  
+  # Inflection marker for CO2-bound: add only if threshold is reached
+  if(min_x_current <= inflection_point_CO2bound && max_x_current >= inflection_point_CO2bound) {
+    p <- p + geom_point(aes(x = inflection_point_CO2bound,
+                            y = interp_CO2bound(inflection_point_CO2bound)),
+                        color = "red", size = 0.6)
+  }
+  
+  # Inflection marker for H+-bound (HbNH3p)
+  if(min_x_current <= inflection_point_HbNH3p && max_x_current >= inflection_point_HbNH3p) {
+    p <- p + geom_point(aes(x = inflection_point_HbNH3p,
+                            y = interp_HbNH3p(inflection_point_HbNH3p)),
+                        color = "red", size = 0.6)
+  }
+  
+  if (current_id >= 4) {
+    sample4_inflection <- data$inflection_point_SHbO2[4]  # the inflection PO2 for sample 4
+    sample4_curve <- combined_long %>% filter(CurveID == 4, BindingType == "O2bound")
+    sample4_y_measured <- approx(
+      x = sample4_curve$PO2,
+      y = sample4_curve$Concentration / Hct_global,
+      xout = sample4_inflection,
+      rule = 2
+    )$y
+    p <- p + geom_point(aes(x = sample4_inflection, y = sample4_y_measured),
+                        color = "black", size = 0.7)
+  }
+  
+  # (D) Set axis limits, labels, and theme as before
+  p <- p +
+    coord_cartesian(xlim = c(0, 40), ylim = c(0, 0.011)) +
+    scale_color_manual(values = normal_colors) +
+    scale_y_continuous(
+      labels = scales::label_number(scale = 1000),
+      name   = if (col_position == 1 && row_position == 2)
+        expression(Hb - O[2] * "," ~ CO[2] * "," ~ H^"+" ~ "(mM in RBC space)")
+      else NULL
+    ) +
+    labs(
+      title = paste("Sample", current_id),
+      x     = if (row_position == n_rows) expression(PO[2] ~ "(mmHg)") else NULL
+    ) +
+    theme_minimal(base_size = 9) +
+    theme(
+      legend.position   = "none",
+      plot.title        = element_text(hjust = 0.5, size = 10),
+      axis.title.x      = if (row_position == n_rows) element_text(size = 9) else element_blank(),
+      axis.title.y      = if (col_position == 1 && row_position == 2) element_text(size = 9) else element_blank(),
+      axis.text.x       = if (row_position == n_rows) element_text() else element_blank(),
+      axis.text.y       = if (col_position == 1) element_text() else element_blank(),
+      axis.ticks.x      = if (row_position == n_rows) element_line() else element_blank(),
+      axis.ticks.y      = if (col_position == 1) element_line() else element_blank(),
+      panel.grid.minor  = element_blank()
+    )
+  
+  # (Optional) Additional annotations for specific samples remain unchanged...
+  if (current_id == 4) {
+    p <- p +
+      annotate("text", x = 0.1, y = 0.010, label = "Passing in vitro ",       color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 0.1, y = 0.009, label = "inflection point", color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 23.5, y = 0.0045, label = "& in vivo", color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 23.5, y = 0.0035, label = "intersection", color = "black", size = 3, hjust = 0) 
+  }
+  if (current_id == 6) {
+    p <- p +
+      annotate("text", x = 0, y = 0.010, label = "1st appreciable", color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 0, y = 0.009, label = "right shift",     color = "black", size = 3, hjust = 0)
+  }
+  if (current_id == 8) {
+    p <- p +
+      annotate("point", x = 0.6, y = 0.010, color = "red", size = 0.6) +
+      annotate("text", x = 1.6, y = 0.010, label = "Passing in vivo", color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 0.1, y = 0.009, label = "Inflections &",   color = "black", size = 3, hjust = 0) +
+      annotate("text", x = 0.1, y = 0.008, label = "GET",   color = "black", size = 3, hjust = 0)
+  }
+  
+  plot_list[[i]] <- p
+}
+
+# 9) Combine all panels into a multi-panel plot
+Figure_5 <- wrap_plots(plot_list, ncol = n_cols) +
+  plot_annotation(
+    theme = theme(
+      plot.title   = element_blank(),
+      plot.caption = element_text(size = 10, hjust = 0.5)
+    )
+  ) &
+  theme(plot.margin = unit(c(5, 5, 5, 5), "pt"))
+
+# 10) Display or save Figure 5
+print(Figure_5)
+ggsave("Figure_5.tiff", Figure_5, width = 17.4, height = 17.4, units = "cm",
+       dpi = 600, compression = "lzw")
+
 
