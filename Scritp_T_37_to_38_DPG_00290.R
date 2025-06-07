@@ -6,13 +6,14 @@
 # efficient computations and helping to implement them
 
 # Libraries required to run the code if not already installed run first this line
-# install.packages(c('ggplot2', 'dplyr', 'tidyr', 'pracma', 'patchwork', 'cowplot', 'ggpubr'))
+# install.packages(c('ggplot2', 'dplyr', 'tidyr', 'pracma', 'patchwork', 'cowplot', 'ggpubr', 'magick'))
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
 library(cowplot)
 library(ggpubr)
+library(magick)
 
 #---------------------------------------------------------------------------------------
 # Simulation of oxyhemoglobin (HbO2) and carbaminohemoglobin (HbCO2) dissociation
@@ -650,6 +651,11 @@ Figure_4 <-
     linewidth = 0.2,  
     show.legend = FALSE
   ) +
+  geom_point( # Inflection points of the ODCs
+    data = inflection_points,
+    aes(x = PO2, y = O2bound/Hct_global),
+    size = 1.5, shape = 21, fill = inflection_points_fill, color = inflection_points_edge
+  ) +
   geom_point( # Stringers original data points
     data = original_points,
     aes(x = PO2, y = O2bound/Hct_global, fill = "Original Data"), 
@@ -659,20 +665,20 @@ Figure_4 <-
     "text",
     x = 0.2,
     y = 0.00577,
-    label = "GET amid sample 7 & 8 ->",
+    label = "GET: Sample 7 to 8 ->",
     hjust = 0,
     vjust = 1,
-    size = 4.5,  
+    size = 4.85,  
     color = "black"
   ) +
   annotate(
     "text",
     x = 0.2,
     y = 0.0079,
-    label = "Sample 4 passing inflection ->",
+    label = "Sample 4 at inflection ->",
     hjust = 0,
     vjust = 1,
-    size = 4.5,  
+    size = 4.85,  
     color = "black"
   ) +
   annotate(
@@ -682,17 +688,17 @@ Figure_4 <-
     label = "Inflection\npoints",
     hjust = 0,
     vjust = 1,
-    size = 4.5,  
+    size = 4.85,  
     color = "black"
   ) +
   annotate(
     "text",
-    x = 38,
+    x = 37,
     y = 0.0112,
     label = "P50s",
     hjust = 0,
     vjust = 1,
-    size = 4.5,  
+    size = 4.85,  
     color = "black"
   ) +
   annotate(
@@ -710,7 +716,7 @@ Figure_4 <-
     y = 0.0113,
     label = "Blood Samples",
     hjust = 0,
-    size = 4.5
+    size = 4.85
   ) +
   
   annotate(
@@ -728,7 +734,7 @@ Figure_4 <-
     y = 0.0109,
     label = expression("In vitro " * O[2] * " Dissociation Curves"),
     hjust = 0,
-    size = 4.5
+    size = 4.85
   ) +
   
   annotate(
@@ -746,7 +752,7 @@ Figure_4 <-
     y = 0.0105,
     label = expression("In vivo " * O[2] * " Dissociation Curve"),
     hjust = 0,
-    size = 4.5
+    size = 4.85
   ) +
   
   annotate(
@@ -764,7 +770,7 @@ Figure_4 <-
     y = 0.0101,
     label = expression("In vivo " * CO[2] * " Dissociation Curve"),
     hjust = 0,
-    size = 4.5
+    size = 4.75
   ) +
   
   annotate(
@@ -782,13 +788,8 @@ Figure_4 <-
     y = 0.0097,
     label = expression("In vivo " * HbNH[3]^"+" * " curve"),
     hjust = 0,
-    size = 4.5
+    size = 4.85
   )+
-  geom_point( # Inflection points of the ODCs
-    data = inflection_points,
-    aes(x = PO2, y = O2bound/Hct_global),
-    size = 1.5, shape = 21, fill = inflection_points_fill, color = inflection_points_edge
-  ) +
   geom_point( # P50 values of the ODCs
     data = p50_data,
     aes(x = P50, y = O2bound/Hct_global),
@@ -806,9 +807,12 @@ Figure_4 <-
   coord_cartesian(xlim = c(0, 40), ylim = c(0, 0.011)) +
   theme_minimal() +
   theme(
-    axis.title.y.right = element_text(angle = 90, size = 10),  # Increased axis title font size
-    axis.title.x = element_text(size = 10),  # Increased axis title font size
-    axis.title.y = element_text(size = 10)   # Increased axis title font size
+    axis.title.y.right = element_text(angle = 90, size = 14),
+    axis.title.x       = element_text(size = 14),
+    axis.title.y       = element_text(size = 14),
+    axis.text.x        = element_text(size = 14),   # ↑ bigger X ticks
+    axis.text.y        = element_text(size = 14),   # ↑ bigger left Y ticks
+    axis.text.y.right  = element_text(size = 14)    # ↑ bigger right Y ticks
   )
 
 Figure_4
@@ -828,9 +832,12 @@ Figure_4 <- Figure_4 +
   ) +
   theme_minimal()+
   theme(
-    axis.title.y.right = element_text(angle = 90, size = 12), 
-    axis.title.x = element_text(size = 12), 
-    axis.title.y = element_text(size = 12)   
+    axis.title.y.right = element_text(angle = 90, size = 14),
+    axis.title.x       = element_text(size = 14),
+    axis.title.y       = element_text(size = 14),
+    axis.text.x        = element_text(size = 14),   # ↑ bigger X ticks
+    axis.text.y        = element_text(size = 14),   # ↑ bigger left Y ticks
+    axis.text.y.right  = element_text(size = 14)    # ↑ bigger right Y ticks
   )
 
 # Print the updated plot
@@ -1087,32 +1094,60 @@ combined_data <- rbind(data_selected, fitted_values_selected)
 # Check the new combined data frame
 print(combined_data)
 
+
+
+
+
+combined_data <- combined_data*100 # Fractional saturation to % saturation
 # Calculate means and differences
-combined_data$Mean <- rowMeans(combined_data[,c('Sat_measured', 'SHbO2kin')], na.rm=TRUE)
+combined_data$Mean <- rowMeans(combined_data[, c('Sat_measured', 'SHbO2kin')], na.rm = TRUE)
 combined_data$Difference <- combined_data$Sat_measured - combined_data$SHbO2kin
+
+# Calculate mean difference and limits of agreement
+mean_diff <- round(mean(combined_data$Difference, na.rm = TRUE), 1)
+upper_loa <- round(mean_diff + 1.96 * sd(combined_data$Difference, na.rm = TRUE), 1)
+lower_loa <- round(mean_diff - 1.96 * sd(combined_data$Difference, na.rm = TRUE), 2)
 
 # Plot Bland-Altman Plot
 Figure_3 <- ggplot(combined_data, aes(x = Mean, y = Difference)) +
   geom_point(alpha = 0.5, size = 1.5) +
-  geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Zero line
-  geom_hline(yintercept = mean(combined_data$Difference, na.rm = TRUE), col = "red") +
-  geom_hline(
-    yintercept = mean(combined_data$Difference, na.rm = TRUE) + 1.96 * sd(combined_data$Difference, na.rm = TRUE),
-    linetype = "dashed",
-    color = "black"
+  geom_hline(yintercept = mean_diff, color = "black", linetype = "solid") + # Mean difference line in black
+  geom_hline(yintercept = upper_loa, linetype = "dashed", color = "black") +
+  geom_hline(yintercept = lower_loa, linetype = "dashed", color = "black") +
+  geom_text(
+    aes(x = max(combined_data$Mean), y = upper_loa, label = sprintf("+1.96 SD: %.1f", upper_loa)),
+    hjust = 1,
+    vjust = -0.5,
+    color = "black",
+    size = 4.85
   ) +
-  geom_hline(
-    yintercept = mean(combined_data$Difference, na.rm = TRUE) - 1.96 * sd(combined_data$Difference, na.rm = TRUE),
-    linetype = "dashed",
-    color = "black"
+  geom_text(
+    aes(x = max(combined_data$Mean), y = mean_diff, label = sprintf("Mean Diff: %.1f", mean_diff)),
+    hjust = 1,
+    vjust = -0.5,
+    color = "black",
+    size = 4.85
   ) +
-  labs(x = expression("Mean of Fractional O"[2] * "Hb Saturations"), y = "Difference") +
+  geom_text(
+    aes(x = max(combined_data$Mean), y = lower_loa, label = sprintf("-1.96 SD: %.1f", lower_loa)),
+    hjust = 1,
+    vjust = 1.5,
+    color = "black",
+    size = 4.85
+  ) +
+  scale_y_continuous(
+    limits = c(-5, 5),
+    breaks = seq(-5, 5, by = 2),
+    labels = function(x) sprintf("%d", x)
+  ) +
+  labs(x = expression("Mean of O"[2] * "Hb Saturations (%)"), y = "Difference") +
   theme_minimal() +
-  theme(text = element_text(size = 9), axis.text = element_text(size = 8))
+  theme(text = element_text(size = 14), axis.text = element_text(size = 14))
 
+# Save the plot with the specified dimensions and print
+ggsave("Figure_3.tiff", Figure_3, width = 17.4/2, height = 5.32, units = "cm", dpi = 600, compression = "lzw")
 print(Figure_3)
 
-ggsave("Figure_3.tiff", Figure_3, width = 17.4/2, height = 5.32, units = "cm", dpi = 600, compression = "lzw")
 
 
 ############################################################################################
@@ -1689,7 +1724,7 @@ Figure_4_updated_R <- Figure_4_updated_R +
   geom_vline(xintercept = intersection_PO2, linetype = "dashed", color = "grey", linewidth = 0.6) +
   annotate("text", x = intersection_PO2 + 0.5, y = 0.002,
            label = paste(round(intersection_PO2, 2), "mmHg"),
-           hjust = 0, vjust = -1, size = 4.5, color = "black")
+           hjust = 0, vjust = -1, size = 4.85, color = "black")
 
 
 # Function to calculate second derivative for inflection points
@@ -1714,7 +1749,7 @@ Figure_4_updated_final <- Figure_4_updated_R +
   #  geom_vline(xintercept = inflection_point_CO2bound, linetype = "dashed", color = "#D55E00", linewidth = 0.6) +
   annotate("text", x = inflection_point_HbNH3p - 0.3, y = 0.0012,
            label = paste(round(inflection_point_CO2bound, 2), "mmHg"),
-           hjust = 0, vjust = -1, size = 4.5, color = "red") +
+           hjust = 0, vjust = -1, size = 4.85, color = "red") +
   
   geom_point(aes(x = inflection_point_HbNH3p, y = interp_HbNH3p(inflection_point_HbNH3p)),
              colour = "red", size = 2) +
@@ -1723,7 +1758,7 @@ Figure_4_updated_final <- Figure_4_updated_R +
            x = inflection_point_HbNH3p - 0.3, 
            y = interp_HbNH3p(inflection_point_HbNH3p),
            label = paste(round(inflection_point_HbNH3p, 2), "mmHg"),
-           hjust = 0, vjust = -1, size = 4.5, color = "red")
+           hjust = 0, vjust = -1, size = 4.85, color = "red")
 
 
 # Save the final updated figure
@@ -1990,5 +2025,29 @@ Figure_5 <- wrap_plots(plot_list, ncol = n_cols) +
 print(Figure_5)
 ggsave("Figure_5.tiff", Figure_5, width = 17.4, height = 17.4, units = "cm",
        dpi = 600, compression = "lzw")
+
+
+
+
+# Combine Fig 4 & 3 to Figure 3 Multipanel -------------------------------------
+combined_figure_3AB <-  Figure_4_updated_final / Figure_3 +
+  plot_layout(heights = c(17, 5.32)) # Adjust relative heights accordingly
+
+# Save the combined figure
+ggsave(
+  filename = "Combined_Figure_3AB.tiff",
+  plot = combined_figure_3AB,
+  width = 15,                 # Keep width consistent
+  height = 17 + 5.32,         # Total height
+  units = "cm",
+  dpi = 600,
+  compression = "lzw"
+)
+
+# Display the combined figure
+print(combined_figure_3AB)
+
+
+
 
 
